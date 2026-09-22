@@ -1,0 +1,31 @@
+TV1 RAN Simulator Validation Report
+Date: 2026-09-22
+Contract version: 1.0.0
+
+AUTOMATED TESTS
+- Command: python -m unittest discover -s tests -v
+- Result: PASS
+- Passed: 10
+- Failed: 0
+
+SCENARIO OUTPUT VALIDATION
+- stable_load: PASS, 500 KPI rows
+- urllc_burst: PASS, 500 KPI rows
+- poor_channel: PASS, 500 KPI rows
+
+RESULT SANITY SUMMARY
+- stable_load: average eMBB throughput 7.630 Mbps, average completed URLLC delay 1.620 ms, dropped URLLC packets 33
+- urllc_burst: average eMBB throughput 7.750 Mbps, average completed URLLC delay 1.630 ms, dropped URLLC packets 373
+- poor_channel: average eMBB throughput 3.190 Mbps, average completed URLLC delay 2.510 ms, dropped URLLC packets 357
+
+INTEGRATION CHECKS
+- State, Action, RAN KPI and Transition JSON samples parsed successfully.
+- All JSON Schema files contain valid JSON.
+- Required ran_metrics.csv headers are present.
+- The JSON Lines bridge returned a State and accepted a valid Action.
+- Same config and seed produced identical transitions.
+- Negative/overflow RB and stale-slot Action inputs were rejected.
+- Queue values stayed non-negative and served data never exceeded demand.
+- KPI values were finite and bounded where applicable.
+
+FINAL STATUS: ACCEPTED FOR HANDOFF TO TV2, TV3, TV4 AND TV5

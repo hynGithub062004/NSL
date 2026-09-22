@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nsl.local/contracts/ran_kpi.schema.json",
+  "title": "TV1 RAN KPI",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "request_id", "seed", "scenario_id", "algorithm", "time_slot",
+    "throughput_e", "delay_u", "drop_u", "sla_violation", "fairness", "rb_utilization",
+    "allocated_embb_rb", "allocated_urllc_rb", "used_embb_rb", "used_urllc_rb",
+    "served_embb_bits", "served_urllc_bits", "completed_urllc_packets",
+    "dropped_urllc_packets", "units"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "request_id": {"type": "string"},
+    "seed": {"type": "integer"},
+    "scenario_id": {"type": "string"},
+    "algorithm": {"type": "string"},
+    "time_slot": {"type": "integer", "minimum": 0},
+    "throughput_e": {"type": "number", "minimum": 0},
+    "delay_u": {"type": "number", "minimum": 0},
+    "drop_u": {"type": "number", "minimum": 0, "maximum": 1},
+    "sla_violation": {"type": "number", "minimum": 0, "maximum": 1},
+    "fairness": {"type": "number", "minimum": 0, "maximum": 1},
+    "rb_utilization": {"type": "number", "minimum": 0, "maximum": 1},
+    "allocated_embb_rb": {"type": "integer", "minimum": 0},
+    "allocated_urllc_rb": {"type": "integer", "minimum": 0},
+    "used_embb_rb": {"type": "integer", "minimum": 0},
+    "used_urllc_rb": {"type": "integer", "minimum": 0},
+    "served_embb_bits": {"type": "integer", "minimum": 0},
+    "served_urllc_bits": {"type": "integer", "minimum": 0},
+    "completed_urllc_packets": {"type": "integer", "minimum": 0},
+    "dropped_urllc_packets": {"type": "integer", "minimum": 0},
+    "units": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    }
+  }
+}
+

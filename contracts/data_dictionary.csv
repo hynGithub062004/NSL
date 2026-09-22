@@ -1,0 +1,24 @@
+payload,field,type,unit,required,description
+State,schema_version,string,semantic_version,yes,Contract version
+State,time_slot,integer,slot,yes,Current slot before applying Action
+State,scenario_id,string,none,yes,Scenario identifier from YAML
+State,seed,integer,none,yes,Reproducibility seed
+State,embb.queue_bits,integer,bits,yes,eMBB backlog before Action
+State,embb.cqi,integer,index_1_to_15,yes,eMBB channel quality
+State,urllc.queue_packets,integer,packets,yes,URLLC packet backlog
+State,urllc.queue_bits,integer,bits,yes,URLLC remaining-bit backlog
+State,urllc.cqi,integer,index_1_to_15,yes,URLLC channel quality
+State,urllc.oldest_packet_delay_ms,number,ms,yes,Age of FIFO head or zero
+State,urllc.deadline_ms,number,ms,yes,Configured URLLC deadline
+Action,request_id,string,none,yes,Unique decision key forwarded unchanged
+Action,scheduler,string,none,yes,Algorithm identifier
+Action,action_id,integer,none,yes,Scheduler-specific action index
+Action,rb_allocation.embb,integer,RB,yes,RB allocated to eMBB
+Action,rb_allocation.urllc,integer,RB,yes,RB allocated to URLLC
+RAN_KPI,throughput_e,number,Mbps,yes,eMBB throughput in current slot
+RAN_KPI,delay_u,number,ms,yes,Mean completed URLLC delay in current slot
+RAN_KPI,drop_u,number,ratio,yes,URLLC drop ratio among resolved packets
+RAN_KPI,sla_violation,number,ratio,yes,Dropped or late packet ratio
+RAN_KPI,fairness,number,index_0_to_1,yes,Jain demand-satisfaction fairness
+RAN_KPI,rb_utilization,number,ratio,yes,Estimated RB carrying data over total RB
+

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nsl.local/contracts/config.schema.json",
+  "title": "TV1 RAN Scenario Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["simulation", "scenario", "embb", "urllc", "channel", "radio"],
+  "properties": {
+    "simulation": {
+      "type": "object",
+      "required": ["seed", "slots", "slot_duration_ms"],
+      "properties": {
+        "seed": {"type": "integer"},
+        "slots": {"type": "integer", "minimum": 1},
+        "slot_duration_ms": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "type": {"enum": ["stable", "urllc_burst"]},
+        "burst_start_slot": {"type": "integer", "minimum": 0},
+        "burst_duration_slots": {"type": "integer", "minimum": 0},
+        "burst_period_slots": {"type": "integer", "minimum": 0}
+      }
+    },
+    "embb": {
+      "type": "object",
+      "required": ["arrival_rate_bits_per_slot", "arrival_jitter_bits"],
+      "properties": {
+        "arrival_rate_bits_per_slot": {"type": "number", "minimum": 0},
+        "arrival_jitter_bits": {"type": "number", "minimum": 0}
+      }
+    },
+    "urllc": {
+      "type": "object",
+      "required": ["arrival_rate_packets_per_slot", "packet_size_bits", "deadline_ms", "burst_multiplier"],
+      "properties": {
+        "arrival_rate_packets_per_slot": {"type": "number", "minimum": 0},
+        "packet_size_bits": {"type": "integer", "minimum": 1},
+        "deadline_ms": {"type": "number", "exclusiveMinimum": 0},
+        "burst_multiplier": {"type": "number", "minimum": 0}
+      }
+    },
+    "channel": {
+      "type": "object",
+      "required": ["embb_initial_cqi", "urllc_initial_cqi", "min_cqi", "max_cqi", "change_probability", "max_step"],
+      "properties": {
+        "embb_initial_cqi": {"type": "integer", "minimum": 1, "maximum": 15},
+        "urllc_initial_cqi": {"type": "integer", "minimum": 1, "maximum": 15},
+        "min_cqi": {"type": "integer", "minimum": 1, "maximum": 15},
+        "max_cqi": {"type": "integer", "minimum": 1, "maximum": 15},
+        "change_probability": {"type": "number", "minimum": 0, "maximum": 1},
+        "max_step": {"type": "integer", "minimum": 1}
+      }
+    },
+    "radio": {
+      "type": "object",
+      "required": ["total_rb", "resource_elements_per_rb", "overhead_factor"],
+      "properties": {
+        "total_rb": {"type": "integer", "minimum": 1},
+        "resource_elements_per_rb": {"type": "integer", "minimum": 1},
+        "overhead_factor": {"type": "number", "exclusiveMinimum": 0, "maximum": 1}
+      }
+    }
+  }
+}
+

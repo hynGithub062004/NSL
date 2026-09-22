@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nsl.local/contracts/state.schema.json",
+  "title": "TV1 RAN State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "time_slot", "scenario_id", "seed", "embb", "urllc"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "time_slot": {"type": "integer", "minimum": 0},
+    "scenario_id": {"type": "string", "minLength": 1},
+    "seed": {"type": "integer"},
+    "embb": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["queue_bits", "cqi"],
+      "properties": {
+        "queue_bits": {"type": "integer", "minimum": 0},
+        "cqi": {"type": "integer", "minimum": 1, "maximum": 15}
+      }
+    },
+    "urllc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["queue_packets", "queue_bits", "cqi", "oldest_packet_delay_ms", "deadline_ms"],
+      "properties": {
+        "queue_packets": {"type": "integer", "minimum": 0},
+        "queue_bits": {"type": "integer", "minimum": 0},
+        "cqi": {"type": "integer", "minimum": 1, "maximum": 15},
+        "oldest_packet_delay_ms": {"type": "number", "minimum": 0},
+        "deadline_ms": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}
+

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nsl.local/contracts/transition.schema.json",
+  "title": "TV1 Complete RAN Transition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "request_id", "state", "action", "ran_kpi", "next_state", "done"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "request_id": {"type": "string"},
+    "state": {"$ref": "state.schema.json"},
+    "action": {"$ref": "action.schema.json"},
+    "ran_kpi": {"$ref": "ran_kpi.schema.json"},
+    "next_state": {"oneOf": [{"$ref": "state.schema.json"}, {"type": "null"}]},
+    "done": {"type": "boolean"}
+  }
+}
+

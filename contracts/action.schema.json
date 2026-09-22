@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nsl.local/contracts/action.schema.json",
+  "title": "TV2 or TV3 RB Allocation Action",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "request_id", "time_slot", "scheduler", "action_id", "rb_allocation"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "request_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
+    "time_slot": {"type": "integer", "minimum": 0},
+    "scheduler": {"type": "string", "minLength": 1},
+    "action_id": {"type": "integer", "minimum": 0},
+    "rb_allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["embb", "urllc"],
+      "properties": {
+        "embb": {"type": "integer", "minimum": 0},
+        "urllc": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}
+

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nsl.local/contracts/core_handoff.schema.json",
+  "title": "TV5 to TV4 Policy Handoff Keys",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "request_id", "seed", "scenario_id", "algorithm", "time_slot", "selected_policy"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "request_id": {"type": "string"},
+    "seed": {"type": "integer"},
+    "scenario_id": {"type": "string"},
+    "algorithm": {"type": "string"},
+    "time_slot": {"type": "integer", "minimum": 0},
+    "selected_policy": {"enum": ["high_bandwidth", "low_latency"]}
+  }
+}
+

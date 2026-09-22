@@ -1,0 +1,80 @@
+{
+  "schema_version": "1.0.0",
+  "request_id": "smoke-000000",
+  "state": {
+    "schema_version": "1.0.0",
+    "time_slot": 0,
+    "scenario_id": "urllc_burst",
+    "seed": 42,
+    "embb": {
+      "queue_bits": 15712,
+      "cqi": 11
+    },
+    "urllc": {
+      "queue_packets": 0,
+      "queue_bits": 0,
+      "cqi": 7,
+      "oldest_packet_delay_ms": 0.0,
+      "deadline_ms": 5.0
+    }
+  },
+  "action": {
+    "schema_version": "1.0.0",
+    "request_id": "smoke-000000",
+    "time_slot": 0,
+    "scheduler": "tv1_smoke_fixed",
+    "action_id": 0,
+    "rb_allocation": {
+      "embb": 25,
+      "urllc": 25
+    }
+  },
+  "ran_kpi": {
+    "schema_version": "1.0.0",
+    "request_id": "smoke-000000",
+    "seed": 42,
+    "scenario_id": "urllc_burst",
+    "algorithm": "tv1_smoke_fixed",
+    "time_slot": 0,
+    "throughput_e": 10.465,
+    "delay_u": 0.0,
+    "drop_u": 0.0,
+    "sla_violation": 0.0,
+    "fairness": 0.961374,
+    "rb_utilization": 0.5,
+    "allocated_embb_rb": 25,
+    "allocated_urllc_rb": 25,
+    "used_embb_rb": 25,
+    "used_urllc_rb": 0,
+    "served_embb_bits": 10465,
+    "served_urllc_bits": 0,
+    "completed_urllc_packets": 0,
+    "dropped_urllc_packets": 0,
+    "units": {
+      "throughput_e": "Mbps",
+      "delay_u": "ms",
+      "drop_u": "ratio",
+      "sla_violation": "ratio",
+      "fairness": "index_0_to_1",
+      "rb_utilization": "ratio"
+    }
+  },
+  "next_state": {
+    "schema_version": "1.0.0",
+    "time_slot": 1,
+    "scenario_id": "urllc_burst",
+    "seed": 42,
+    "embb": {
+      "queue_bits": 20901,
+      "cqi": 11
+    },
+    "urllc": {
+      "queue_packets": 0,
+      "queue_bits": 0,
+      "cqi": 6,
+      "oldest_packet_delay_ms": 0.0,
+      "deadline_ms": 5.0
+    }
+  },
+  "done": false
+}
