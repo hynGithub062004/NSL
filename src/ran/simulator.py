@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import copy
 import csv
+import hashlib
 import json
 import math
+import platform
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +39,7 @@ class RANSimulator:
         self.cqi_log: list[dict] = []
         self.metrics_log: list[dict] = []
         self.transition_log: list[dict] = []
+        self.completed_delay_log_ms: list[float] = []
         self.seed = 0
         self.time_slot = 0
         self.done = False
@@ -76,6 +79,7 @@ class RANSimulator:
         self.cqi_log.clear()
         self.metrics_log.clear()
         self.transition_log.clear()
+        self.completed_delay_log_ms.clear()
         self._prepare_slot()
         return self.get_state()
 
@@ -153,6 +157,7 @@ class RANSimulator:
             packet.age_ms + self.slot_duration_ms
             for packet in urllc_service.completed_packets
         ]
+        self.completed_delay_log_ms.extend(completed_delays)
         dropped = self.urllc_queue.age_and_drop(self.slot_duration_ms)
         used_embb_rb = self._used_rb(allocation["embb"], served_embb, embb_capacity)
         used_urllc_rb = self._used_rb(
@@ -224,6 +229,145 @@ class RANSimulator:
                 json.dumps(self.transition_log[0], ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
             )
+        (output / "run_summary.json").write_text(
+            json.dumps(self.build_run_summary(), ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (output / "run_manifest.json").write_text(
+            json.dumps(self.build_run_manifest(), ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+    @staticmethod
+    def _safe_ratio(numerator: float, denominator: float) -> float:
+        return numerator / denominator if denominator > 0 else 0.0
+
+    @staticmethod
+    def _nearest_rank(values: list[float], percentile: float) -> float:
+        """Return a deterministic nearest-rank percentile for a non-empty sample."""
+        if not values:
+            return 0.0
+        ordered = sorted(values)
+        rank = max(1, math.ceil(percentile * len(ordered)))
+        return float(ordered[min(rank, len(ordered)) - 1])
+
+    def build_run_summary(self) -> dict:
+        """Aggregate raw counters without averaging per-slot ratios."""
+        arrived_packets = sum(row["urllc_arrival_packets"] for row in self.traffic_log)
+        arrived_embb_bits = sum(row["embb_arrival_bits"] for row in self.traffic_log)
+        arrived_urllc_bits = sum(row["urllc_arrival_bits"] for row in self.traffic_log)
+        completed_packets = sum(row["completed_urllc_packets"] for row in self.metrics_log)
+        dropped_packets = sum(row["dropped_urllc_packets"] for row in self.metrics_log)
+        unresolved_packets = self.urllc_queue.packet_count
+        served_embb_bits = sum(row["served_embb_bits"] for row in self.metrics_log)
+        served_urllc_bits = sum(row["served_urllc_bits"] for row in self.metrics_log)
+        late_completed = sum(
+            delay > float(self.config["urllc"]["deadline_ms"])
+            for delay in self.completed_delay_log_ms
+        )
+        processed_slots = len(self.metrics_log)
+        duration_seconds = processed_slots * self.slot_duration_ms / 1000.0
+        resolved_packets = completed_packets + dropped_packets
+        conservation_total = completed_packets + dropped_packets + unresolved_packets
+        delays = self.completed_delay_log_ms
+
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "scenario_id": self.scenario_id,
+            "seed": self.seed,
+            "status": "complete" if self.done else "partial",
+            "processed_slots": processed_slots,
+            "slot_duration_ms": self.slot_duration_ms,
+            "simulated_duration_ms": processed_slots * self.slot_duration_ms,
+            "urllc_packet_counters": {
+                "arrived": arrived_packets,
+                "completed": completed_packets,
+                "dropped": dropped_packets,
+                "late_completed": late_completed,
+                "unresolved_at_end": unresolved_packets,
+                "conservation_ok": arrived_packets == conservation_total,
+            },
+            "urllc_run_rates": {
+                "completion_rate": round(self._safe_ratio(completed_packets, arrived_packets), 6),
+                "drop_rate_total": round(self._safe_ratio(dropped_packets, arrived_packets), 6),
+                "unresolved_rate": round(self._safe_ratio(unresolved_packets, arrived_packets), 6),
+                "resolved_drop_rate": round(self._safe_ratio(dropped_packets, resolved_packets), 6),
+            },
+            "completed_urllc_delay_ms": {
+                "sample_count": len(delays),
+                "mean": round(self._safe_ratio(sum(delays), len(delays)), 6),
+                "p50_nearest_rank": round(self._nearest_rank(delays, 0.50), 6),
+                "p95_nearest_rank": round(self._nearest_rank(delays, 0.95), 6),
+                "max": round(max(delays), 6) if delays else 0.0,
+            },
+            "traffic_and_service": {
+                "arrived_embb_bits": arrived_embb_bits,
+                "arrived_urllc_bits": arrived_urllc_bits,
+                "served_embb_bits": served_embb_bits,
+                "served_urllc_bits": served_urllc_bits,
+                "offered_embb_mbps": round(
+                    self._safe_ratio(arrived_embb_bits, duration_seconds) / 1_000_000.0, 6
+                ),
+                "offered_urllc_mbps": round(
+                    self._safe_ratio(arrived_urllc_bits, duration_seconds) / 1_000_000.0, 6
+                ),
+                "served_embb_mbps": round(
+                    self._safe_ratio(served_embb_bits, duration_seconds) / 1_000_000.0, 6
+                ),
+                "served_urllc_mbps": round(
+                    self._safe_ratio(served_urllc_bits, duration_seconds) / 1_000_000.0, 6
+                ),
+            },
+            "aggregation_rules": {
+                "drop_rate_total": "sum(dropped_urllc_packets) / sum(urllc_arrival_packets)",
+                "resolved_drop_rate": "sum(dropped) / (sum(completed) + sum(dropped))",
+                "delay_population": "completed URLLC packets only; dropped packets are excluded",
+                "percentile_method": "nearest rank",
+            },
+        }
+
+    def build_run_manifest(self) -> dict:
+        """Return reproducibility metadata and the exact model assumptions."""
+        config_text = json.dumps(
+            self.config, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        config_sha256 = hashlib.sha256(config_text.encode("utf-8")).hexdigest()
+        action_trace = [
+            {
+                "scheduler": row["action"]["scheduler"],
+                "action_id": row["action"]["action_id"],
+                "rb_allocation": row["action"]["rb_allocation"],
+            }
+            for row in self.transition_log
+        ]
+        run_material = json.dumps(
+            {"config_sha256": config_sha256, "seed": self.seed, "actions": action_trace},
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        run_id = hashlib.sha256(run_material.encode("utf-8")).hexdigest()[:16]
+        algorithms = sorted({row["algorithm"] for row in self.metrics_log})
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "run_id": run_id,
+            "config_sha256": config_sha256,
+            "scenario_id": self.scenario_id,
+            "seed": self.seed,
+            "python_version": platform.python_version(),
+            "processed_slots": len(self.metrics_log),
+            "algorithms": algorithms,
+            "model": {
+                "capacity_bits": "floor(RB * 168 * CQI_efficiency * 0.75)",
+                "cqi_source": "3GPP TS 38.214 Table 5.2.2.1-2 (CQI Table 1)",
+                "resource_grid": "168 gross RE per RB-slot = 12 subcarriers * 14 symbols",
+                "overhead_factor": self.config["radio"]["overhead_factor"],
+                "deadline_policy": (
+                    "service first; completion at delay <= deadline is on time; "
+                    "an unfinished packet is dropped when age reaches deadline"
+                ),
+            },
+            "config": self.config,
+        }
 
     @staticmethod
     def _write_csv(path: Path, rows: list[dict], flatten_units: bool = False) -> None:
@@ -240,4 +384,3 @@ class RANSimulator:
             writer = csv.DictWriter(handle, fieldnames=list(normalized[0].keys()))
             writer.writeheader()
             writer.writerows(normalized)
-

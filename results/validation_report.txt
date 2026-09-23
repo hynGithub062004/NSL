@@ -1,25 +1,42 @@
 TV1 RAN Simulator Validation Report
-Date: 2026-09-22
+Date: 2026-09-23
 Contract version: 1.0.0
 
 AUTOMATED TESTS
 - Command: python -m unittest discover -s tests -v
 - Result: PASS
-- Passed: 10
+- Passed: 14
 - Failed: 0
+- Added boundary coverage: exact-deadline completion, partial service then drop,
+  zero URLLC RB, burst-window limits, State/next-State separation and packet
+  conservation.
+
+BASELINE DATASET
+- Scheduler: tv1_smoke_fixed
+- Action: 25 RB eMBB + 25 RB URLLC (50 RB total)
+- Seed: 42
+- Slots: 500
+- Slot duration: 1 ms
+- Simulated duration per scenario: 500 ms
 
 SCENARIO OUTPUT VALIDATION
-- stable_load: PASS, 500 KPI rows
-- urllc_burst: PASS, 500 KPI rows
-- poor_channel: PASS, 500 KPI rows
+- stable_load: PASS, 500 KPI rows, run_id 2031495362859ef7
+- urllc_burst: PASS, 500 KPI rows, run_id 8f03a033e5a7fec0
+- poor_channel: PASS, 500 KPI rows, run_id 590da186600c9473
 
-RESULT SANITY SUMMARY
-- stable_load: average eMBB throughput 7.630 Mbps, average completed URLLC delay 1.620 ms, dropped URLLC packets 33
-- urllc_burst: average eMBB throughput 7.750 Mbps, average completed URLLC delay 1.630 ms, dropped URLLC packets 373
-- poor_channel: average eMBB throughput 3.190 Mbps, average completed URLLC delay 2.510 ms, dropped URLLC packets 357
+RUN-LEVEL RESULTS
+- stable_load: offered/served eMBB 17.921/7.634 Mbps; URLLC arrived
+  764, completed 730, dropped 33, unresolved 1; total drop rate 4.319%;
+  completed-delay mean/p50/p95/max 1.741/1/5/5 ms.
+- urllc_burst: offered/served eMBB 15.983/7.753 Mbps; URLLC arrived
+  1020, completed 639, dropped 373, unresolved 8; total drop rate 36.569%;
+  completed-delay mean/p50/p95/max 2.449/2/5/5 ms.
+- poor_channel: offered/served eMBB 11.921/3.195 Mbps; URLLC arrived
+  764, completed 400, dropped 357, unresolved 7; total drop rate 46.728%;
+  completed-delay mean/p50/p95/max 3.843/4/5/5 ms.
 
-INTEGRATION CHECKS
-- State, Action, RAN KPI and Transition JSON samples parsed successfully.
+INTEGRATION AND ACCOUNTING CHECKS
+- State, Action, RAN KPI and Transition samples parsed successfully.
 - All JSON Schema files contain valid JSON.
 - Required ran_metrics.csv headers are present.
 - The JSON Lines bridge returned a State and accepted a valid Action.
@@ -27,5 +44,14 @@ INTEGRATION CHECKS
 - Negative/overflow RB and stale-slot Action inputs were rejected.
 - Queue values stayed non-negative and served data never exceeded demand.
 - KPI values were finite and bounded where applicable.
+- For every scenario: arrived = completed + dropped + unresolved_at_end.
+- run_summary.json and run_manifest.json are present and validated.
+
+INTERPRETATION RULES
+- Per-slot drop_u = dropped / (completed + dropped) for packets resolved in that slot.
+- Run drop_rate_total = total dropped / total arrived; per-slot ratios are not averaged.
+- Delay statistics include completed URLLC packets only and use nearest-rank percentiles.
+- Completion exactly at the 5 ms deadline is on time; an unfinished packet is
+  dropped when its age reaches 5 ms after service.
 
 FINAL STATUS: ACCEPTED FOR HANDOFF TO TV2, TV3, TV4 AND TV5

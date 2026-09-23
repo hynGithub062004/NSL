@@ -9,6 +9,8 @@
 | `action.schema.json` | TV2 or TV3 | TV1, TV5 |
 | `ran_kpi.schema.json` | TV1 | TV3 reward, TV5 reporting |
 | `transition.schema.json` | TV1 | TV3, TV5 |
+| `run_summary.schema.json` | TV1 | TV5 reporting and audit |
+| `run_manifest.schema.json` | TV1 | TV5 reproducibility audit |
 | `core_handoff.schema.json` | TV5 | TV4 |
 
 ## Compatibility

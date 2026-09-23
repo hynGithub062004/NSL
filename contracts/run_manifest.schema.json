@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nsl.local/contracts/run_manifest.schema.json",
+  "title": "TV1 Run Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "run_id", "config_sha256", "scenario_id", "seed",
+    "python_version", "processed_slots", "algorithms", "model", "config"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "run_id": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+    "config_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scenario_id": {"type": "string"},
+    "seed": {"type": "integer"},
+    "python_version": {"type": "string"},
+    "processed_slots": {"type": "integer", "minimum": 0},
+    "algorithms": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "model": {"type": "object"},
+    "config": {"type": "object"}
+  }
+}

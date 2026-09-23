@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nsl.local/contracts/run_summary.schema.json",
+  "title": "TV1 Run Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "scenario_id", "seed", "status", "processed_slots",
+    "slot_duration_ms", "simulated_duration_ms", "urllc_packet_counters",
+    "urllc_run_rates", "completed_urllc_delay_ms", "traffic_and_service",
+    "aggregation_rules"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "scenario_id": {"type": "string"},
+    "seed": {"type": "integer"},
+    "status": {"enum": ["complete", "partial"]},
+    "processed_slots": {"type": "integer", "minimum": 0},
+    "slot_duration_ms": {"type": "number", "exclusiveMinimum": 0},
+    "simulated_duration_ms": {"type": "number", "minimum": 0},
+    "urllc_packet_counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arrived", "completed", "dropped", "late_completed", "unresolved_at_end", "conservation_ok"],
+      "properties": {
+        "arrived": {"type": "integer", "minimum": 0},
+        "completed": {"type": "integer", "minimum": 0},
+        "dropped": {"type": "integer", "minimum": 0},
+        "late_completed": {"type": "integer", "minimum": 0},
+        "unresolved_at_end": {"type": "integer", "minimum": 0},
+        "conservation_ok": {"type": "boolean"}
+      }
+    },
+    "urllc_run_rates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["completion_rate", "drop_rate_total", "unresolved_rate", "resolved_drop_rate"],
+      "properties": {
+        "completion_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "drop_rate_total": {"type": "number", "minimum": 0, "maximum": 1},
+        "unresolved_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "resolved_drop_rate": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "completed_urllc_delay_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample_count", "mean", "p50_nearest_rank", "p95_nearest_rank", "max"],
+      "properties": {
+        "sample_count": {"type": "integer", "minimum": 0},
+        "mean": {"type": "number", "minimum": 0},
+        "p50_nearest_rank": {"type": "number", "minimum": 0},
+        "p95_nearest_rank": {"type": "number", "minimum": 0},
+        "max": {"type": "number", "minimum": 0}
+      }
+    },
+    "traffic_and_service": {"type": "object"},
+    "aggregation_rules": {"type": "object"}
+  }
+}

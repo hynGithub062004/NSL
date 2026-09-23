@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "poor_channel",
+  "seed": 42,
+  "status": "complete",
+  "processed_slots": 500,
+  "slot_duration_ms": 1.0,
+  "simulated_duration_ms": 500.0,
+  "urllc_packet_counters": {
+    "arrived": 764,
+    "completed": 400,
+    "dropped": 357,
+    "late_completed": 0,
+    "unresolved_at_end": 7,
+    "conservation_ok": true
+  },
+  "urllc_run_rates": {
+    "completion_rate": 0.52356,
+    "drop_rate_total": 0.467277,
+    "unresolved_rate": 0.009162,
+    "resolved_drop_rate": 0.471598
+  },
+  "completed_urllc_delay_ms": {
+    "sample_count": 400,
+    "mean": 3.8425,
+    "p50_nearest_rank": 4.0,
+    "p95_nearest_rank": 5.0,
+    "max": 5.0
+  },
+  "traffic_and_service": {
+    "arrived_embb_bits": 5960328,
+    "arrived_urllc_bits": 1955840,
+    "served_embb_bits": 1597401,
+    "served_urllc_bits": 1281265,
+    "offered_embb_mbps": 11.920656,
+    "offered_urllc_mbps": 3.91168,
+    "served_embb_mbps": 3.194802,
+    "served_urllc_mbps": 2.56253
+  },
+  "aggregation_rules": {
+    "drop_rate_total": "sum(dropped_urllc_packets) / sum(urllc_arrival_packets)",
+    "resolved_drop_rate": "sum(dropped) / (sum(completed) + sum(dropped))",
+    "delay_population": "completed URLLC packets only; dropped packets are excluded",
+    "percentile_method": "nearest rank"
+  }
+}

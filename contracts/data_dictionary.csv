@@ -21,4 +21,11 @@ RAN_KPI,drop_u,number,ratio,yes,URLLC drop ratio among resolved packets
 RAN_KPI,sla_violation,number,ratio,yes,Dropped or late packet ratio
 RAN_KPI,fairness,number,index_0_to_1,yes,Jain demand-satisfaction fairness
 RAN_KPI,rb_utilization,number,ratio,yes,Estimated RB carrying data over total RB
-
+Run_Summary,urllc_packet_counters.arrived,integer,packets,yes,Total generated URLLC packets
+Run_Summary,urllc_packet_counters.completed,integer,packets,yes,Total fully served URLLC packets
+Run_Summary,urllc_packet_counters.dropped,integer,packets,yes,Total deadline-dropped URLLC packets
+Run_Summary,urllc_packet_counters.unresolved_at_end,integer,packets,yes,Packets remaining after final simulated slot
+Run_Summary,urllc_run_rates.drop_rate_total,number,ratio,yes,Total dropped packets divided by total arrived packets
+Run_Summary,completed_urllc_delay_ms.p95_nearest_rank,number,ms,yes,Nearest-rank p95 over completed packets
+Run_Manifest,run_id,string,hex_16,yes,Deterministic identifier from config seed and action trace
+Run_Manifest,config_sha256,string,sha256_hex,yes,SHA-256 of normalized scenario configuration

@@ -49,10 +49,28 @@ def main() -> int:
         rows = list(reader)
     if not rows:
         raise ValueError("ran_metrics.csv has no data rows")
-    print(json.dumps({"status": "valid", "rows": len(rows)}, indent=2))
+    summary = json.loads((results / "run_summary.json").read_text(encoding="utf-8"))
+    manifest = json.loads((results / "run_manifest.json").read_text(encoding="utf-8"))
+    counters = summary["urllc_packet_counters"]
+    if not counters["conservation_ok"]:
+        raise ValueError("URLLC packet conservation check failed")
+    if summary["processed_slots"] != len(rows):
+        raise ValueError("run_summary processed_slots does not match ran_metrics.csv")
+    if not manifest.get("run_id") or not manifest.get("config_sha256"):
+        raise ValueError("run_manifest is missing reproducibility identifiers")
+    print(
+        json.dumps(
+            {
+                "status": "valid",
+                "rows": len(rows),
+                "run_id": manifest["run_id"],
+                "packet_conservation": True,
+            },
+            indent=2,
+        )
+    )
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

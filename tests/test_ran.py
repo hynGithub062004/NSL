@@ -11,6 +11,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from ran import RANSimulator  # noqa: E402
+from ran.packet import Packet  # noqa: E402
+from ran.queue import UrllcQueue  # noqa: E402
 from ran.rb_capacity import capacity_bits  # noqa: E402
 from ran.schemas import SCHEMA_VERSION, SchemaValidationError  # noqa: E402
 
@@ -104,7 +106,54 @@ class RANSimulatorTests(unittest.TestCase):
         simulator.traffic.config = simulator.config
         simulator.reset(123)
         transition = simulator.apply_action(action_for(simulator, embb=50, urllc=0))
+        self.assertEqual(transition["ran_kpi"]["served_urllc_bits"], 0)
+        self.assertEqual(transition["ran_kpi"]["used_urllc_rb"], 0)
         self.assertGreater(transition["ran_kpi"]["dropped_urllc_packets"], 0)
+
+    def test_packet_completed_exactly_at_deadline_is_on_time(self):
+        queue = UrllcQueue()
+        packet = Packet.create("boundary-complete", 0, 100, 5.0)
+        packet.age_ms = 4.0
+        queue.enqueue([packet])
+        result = queue.serve(100)
+        dropped = queue.age_and_drop(1.0)
+        completed_delay = result.completed_packets[0].age_ms + 1.0
+        self.assertEqual(completed_delay, 5.0)
+        self.assertEqual(len(dropped), 0)
+
+    def test_partial_packet_at_deadline_is_dropped(self):
+        queue = UrllcQueue()
+        packet = Packet.create("boundary-partial", 0, 100, 5.0)
+        packet.age_ms = 4.0
+        queue.enqueue([packet])
+        result = queue.serve(99)
+        dropped = queue.age_and_drop(1.0)
+        self.assertEqual(result.served_bits, 99)
+        self.assertEqual(len(result.completed_packets), 0)
+        self.assertEqual([item.packet_id for item in dropped], ["boundary-partial"])
+
+    def test_transition_has_no_future_arrival_leakage(self):
+        simulator = RANSimulator.from_yaml(CONFIG_PATH)
+        initial_state = simulator.reset(42)
+        transition = simulator.apply_action(action_for(simulator))
+        self.assertEqual(transition["state"], initial_state)
+        self.assertEqual(transition["state"]["time_slot"], 0)
+        self.assertEqual(transition["next_state"]["time_slot"], 1)
+        expected_embb_queue = (
+            initial_state["embb"]["queue_bits"]
+            - transition["ran_kpi"]["served_embb_bits"]
+            + simulator.traffic_log[1]["embb_arrival_bits"]
+        )
+        self.assertEqual(transition["next_state"]["embb"]["queue_bits"], expected_embb_queue)
+
+    def test_burst_window_boundaries(self):
+        burst_path = PROJECT_ROOT / "configs" / "urllc_burst.yaml"
+        simulator = RANSimulator.from_yaml(burst_path)
+        self.assertFalse(simulator.traffic._is_burst(49))
+        self.assertTrue(simulator.traffic._is_burst(50))
+        self.assertTrue(simulator.traffic._is_burst(69))
+        self.assertFalse(simulator.traffic._is_burst(70))
+        self.assertTrue(simulator.traffic._is_burst(150))
 
     def test_export_contains_required_files(self):
         simulator = RANSimulator.from_yaml(CONFIG_PATH)
@@ -119,10 +168,19 @@ class RANSimulatorTests(unittest.TestCase):
                 "transitions.jsonl",
                 "state_sample.json",
                 "transition_sample.json",
+                "run_summary.json",
+                "run_manifest.json",
             }
             self.assertTrue(expected.issubset({p.name for p in Path(directory).iterdir()}))
             sample = json.loads((Path(directory) / "transition_sample.json").read_text())
             self.assertEqual(sample["schema_version"], SCHEMA_VERSION)
+            summary = json.loads((Path(directory) / "run_summary.json").read_text())
+            counters = summary["urllc_packet_counters"]
+            self.assertTrue(counters["conservation_ok"])
+            self.assertEqual(
+                counters["arrived"],
+                counters["completed"] + counters["dropped"] + counters["unresolved_at_end"],
+            )
 
 
 if __name__ == "__main__":

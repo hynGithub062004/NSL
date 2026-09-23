@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "8f03a033e5a7fec0",
+  "config_sha256": "8caa29b25b58ddce1605b0e3404410008a90c81aa14abc69ba08b74221f46989",
+  "scenario_id": "urllc_burst",
+  "seed": 42,
+  "python_version": "3.14.3",
+  "processed_slots": 500,
+  "algorithms": [
+    "tv1_smoke_fixed"
+  ],
+  "model": {
+    "capacity_bits": "floor(RB * 168 * CQI_efficiency * 0.75)",
+    "cqi_source": "3GPP TS 38.214 Table 5.2.2.1-2 (CQI Table 1)",
+    "resource_grid": "168 gross RE per RB-slot = 12 subcarriers * 14 symbols",
+    "overhead_factor": 0.75,
+    "deadline_policy": "service first; completion at delay <= deadline is on time; an unfinished packet is dropped when age reaches deadline"
+  },
+  "config": {
+    "simulation": {
+      "seed": 42,
+      "slots": 500,
+      "slot_duration_ms": 1
+    },
+    "scenario": {
+      "id": "urllc_burst",
+      "type": "urllc_burst",
+      "burst_start_slot": 50,
+      "burst_duration_slots": 20,
+      "burst_period_slots": 100
+    },
+    "embb": {
+      "arrival_rate_bits_per_slot": 16000,
+      "arrival_jitter_bits": 2000
+    },
+    "urllc": {
+      "arrival_rate_packets_per_slot": 1.0,
+      "packet_size_bits": 2560,
+      "deadline_ms": 5,
+      "burst_multiplier": 6
+    },
+    "channel": {
+      "embb_initial_cqi": 11,
+      "urllc_initial_cqi": 7,
+      "min_cqi": 3,
+      "max_cqi": 15,
+      "change_probability": 0.25,
+      "max_step": 1
+    },
+    "radio": {
+      "total_rb": 50,
+      "resource_elements_per_rb": 168,
+      "overhead_factor": 0.75
+    }
+  }
+}

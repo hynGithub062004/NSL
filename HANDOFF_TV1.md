@@ -32,6 +32,8 @@
 - [x] Poor-channel sample run
 - [x] State and transition samples
 - [x] Traffic, CQI and KPI logs
+- [x] Run-level packet conservation and delay percentiles
+- [x] Configuration hash and deterministic run identifier
 - [x] Handoff validation command
 
 ## Acceptance conditions
@@ -46,10 +48,11 @@ The delivery is accepted when:
 6. Served data never exceeds available queue data.
 7. Invalid RB allocations and stale actions are rejected.
 8. KPI values are finite and bounded where applicable.
+9. URLLC arrivals equal completed plus dropped plus unresolved packets.
+10. Deadline-boundary, partial-service, burst-window and state-snapshot tests pass.
 
 ## Change-control rule
 
 Fields in `contracts/*.schema.json` are frozen for schema version `1.0.0`.
 Adding an optional field requires team notification. Removing or renaming a
 field, changing its type, unit or meaning requires a new major schema version.
-

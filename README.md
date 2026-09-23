@@ -126,6 +126,10 @@ ratios blindly.
 - `traffic_log.csv`: generated arrivals by slot.
 - `cqi_log.csv`: CQI by slot.
 - `ran_metrics.csv`: versioned RAN KPI and common join keys.
+- `run_summary.json`: run-level raw counters, packet conservation, drop rate,
+  completion rate and completed-delay mean/p50/p95/max.
+- `run_manifest.json`: exact configuration, Python version, model assumptions,
+  `config_sha256` and deterministic `run_id`.
 
 CSV files use UTF-8, comma delimiters and one header row. JSON and JSONL files
 use UTF-8 and JSON numbers, never `NaN` or `Infinity`.
@@ -157,9 +161,11 @@ The RB capacity model uses the documented CQI spectral-efficiency table,
 `resource_elements_per_rb`, and `overhead_factor`. It is an intentionally
 abstract link model and not a full PHY implementation.
 
+The exact formulas, parameter rationale, 3GPP references, deadline boundary and
+scenario offered-load calculations are specified in `MODEL_ASSUMPTIONS.md`.
+
 ## Ownership boundary
 
 TV2 and TV3 must not generate traffic, mutate queues or compute a second RAN
 model. TV5 may validate and route an Action but must call TV1 to apply it. TV4
 uses only the policy handoff from TV5 and returns Core KPI.
-
