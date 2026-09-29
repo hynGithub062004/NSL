@@ -16,5 +16,4 @@ Thư mục này được chia thành 5 khu vực độc lập:
 2. Không commit dữ liệu nhạy cảm, file môi trường cục bộ hoặc file tạm.
 3. Nên chia mã nguồn, cấu hình, tài liệu và kiểm thử thành các thư mục con rõ ràng.
 4. Ghi cách chạy và các phụ thuộc cần thiết vào `README.md` trong thư mục của mình.
-5. Khi thay đổi contract dùng chung trong `contracts/`, cần thông báo cho cả nhóm.
-
+5. Khi thay đổi contract do TV1 cung cấp trong `TV1/contracts/`, cần thông báo cho cả nhóm.
