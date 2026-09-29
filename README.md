@@ -1,5 +1,19 @@
 # TV1 RAN Simulator Handoff
 
+## Khu vực làm việc của 5 thành viên
+
+Mỗi thành viên upload phần việc của mình vào đúng thư mục trong `members/`:
+
+- `members/TV1/`: RAN Simulator.
+- `members/TV2/`: Scheduler.
+- `members/TV3/`: RL environment/agent.
+- `members/TV4/`: Core Network.
+- `members/TV5/`: Integration và tổng hợp kết quả.
+
+Không upload file của mình sang thư mục thành viên khác. Mỗi thư mục có một
+`README.md` mô tả phạm vi và quy ước đặt file. Mã TV1 hiện có ở thư mục gốc được
+giữ nguyên để bảo toàn các đường dẫn và lệnh kiểm thử hiện tại.
+
 This directory is the complete TV1 delivery for the Network Slicing project. It
 is the only module that generates RAN State, mutates traffic queues, converts RB
 allocations to service capacity, and calculates RAN KPI.
