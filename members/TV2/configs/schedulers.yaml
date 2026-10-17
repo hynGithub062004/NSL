@@ -1,0 +1,13 @@
+common:
+  total_rb: 50
+  require_all_rb: true
+
+static:
+  rb_embb: 25
+  rb_urllc: 25
+  action_id: 0
+
+queue_based:
+  min_rb_embb: 5
+  min_rb_urllc: 5
+  action_id: 1
