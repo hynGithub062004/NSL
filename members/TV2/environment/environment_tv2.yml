@@ -1,0 +1,9 @@
+name: nsl-tv2-py311
+
+channels:
+  - defaults
+
+dependencies:
+  - python=3.11
+  - pip
+  - "pyyaml>=6.0,<7.0"

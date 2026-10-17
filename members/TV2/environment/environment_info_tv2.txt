@@ -1,0 +1,10 @@
+Environment name: nsl-tv2-py311
+Python version: 3.11.16
+PyYAML version: 6.0.3
+Operating system: Windows
+Environment manager: Conda
+Package installer: pip
+Project module: TV2 - Traditional Schedulers
+RAN data contract: 1.0.0
+Validation result: 22 tests passed
+RAN validation: 500 slots, handoff valid, packet conservation passed
