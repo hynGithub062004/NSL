@@ -111,3 +111,99 @@ Thay `static` bằng `queue_based` để chạy Queue-Based Scheduler.
 Runner sử dụng trực tiếp `RANSimulator` của TV1, kiểm tra Action trước
 khi áp dụng và dùng `export_results()` của TV1 để xuất KPI. Runner không
 sửa tệp cấu hình gốc và không tự tính lại KPI.
+
+## Benchmark Static và Queue-Based Scheduler
+
+TV2 cung cấp công cụ chạy benchmark tự động cho hai scheduler truyền thống:
+
+- `static`
+- `queue_based`
+
+Benchmark chính thức sử dụng:
+
+- Ba kịch bản:
+  - `stable_load`
+  - `urllc_burst`
+  - `poor_channel`
+- Ba seed:
+  - `42`
+  - `43`
+  - `44`
+- `500` time slot cho mỗi lần chạy.
+- Tổng cộng `18` lần chạy.
+
+### Chạy toàn bộ ma trận benchmark
+
+Từ thư mục gốc repository, chạy:
+
+    python members\TV2\scripts\run_baseline_matrix.py ^
+      --slots 500 ^
+      --seeds 42 43 44 ^
+      --output-root local_results\baseline_matrix
+
+Script thực hiện các kiểm tra:
+
+- Mỗi run hoàn thành đủ số slot.
+- Packet conservation đạt.
+- Static luôn phân bổ `25/25 RB`.
+- Queue-Based luôn sử dụng đủ `50 RB`.
+- Queue-Based cấp tối thiểu `5 RB` cho mỗi slice.
+- Static và Queue-Based nhận cùng traffic với cùng scenario và seed.
+- Đủ các tệp đầu ra của RAN Simulator.
+
+Kết quả chạy thô được lưu cục bộ trong:
+
+    local_results\baseline_matrix
+
+Thư mục `local_results` không được đưa vào Git.
+
+### Tổng hợp kết quả benchmark
+
+Sau khi ma trận hoàn thành, chạy:
+
+    python members\TV2\scripts\summarize_baseline_results.py ^
+      --input-root local_results\baseline_matrix ^
+      --output-dir members\TV2\results ^
+      --expected-slots 500
+
+Script tổng hợp tạo hai tệp:
+
+- `results/baseline_runs.csv`
+- `results/baseline_aggregate.csv`
+
+`baseline_runs.csv` chứa kết quả chi tiết của `18` lần chạy.
+
+`baseline_aggregate.csv` chứa giá trị trung bình, độ lệch chuẩn mẫu, giá trị
+nhỏ nhất và lớn nhất qua ba seed cho từng cặp scenario và scheduler.
+
+### Tài liệu phân tích
+
+Kết quả và nhận xét kỹ thuật được trình bày trong:
+
+- `results/baseline_analysis.md`
+
+Phân tích baseline tập trung vào:
+
+- Thông lượng eMBB.
+- Thông lượng URLLC.
+- URLLC completion rate.
+- URLLC drop rate.
+- Độ trễ URLLC.
+- Phân bổ RB trung bình.
+- Hạn chế của Queue-Based Scheduler.
+- Yêu cầu thiết kế QoS-Weighted Heuristic.
+
+### Lưu ý về tính công bằng
+
+KPI được lấy trực tiếp từ RAN Simulator của TV1. TV2 không tự tính lại
+throughput, delay hoặc packet drop.
+
+Với cùng scenario và seed, Static cùng Queue-Based phải nhận cùng:
+
+- `arrived_embb_bits`
+- `arrived_urllc_bits`
+- `offered_embb_mbps`
+- `offered_urllc_mbps`
+
+Nếu các giá trị đầu vào này không giống nhau, kết quả không được sử dụng để
+so sánh scheduler.
