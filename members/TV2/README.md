@@ -93,3 +93,21 @@ capacity, deadline hoặc cách tính KPI trong RAN Simulator.
 - So sánh KPI giữa Static và Queue-Based
 - Phát triển QoS-Weighted Heuristic
 - Bàn giao giao diện scheduler cho Orchestrator
+
+## Chạy tích hợp với RAN Simulator
+
+Runner tích hợp hỗ trợ Static và Queue-Based Scheduler:
+
+    python scripts/run_scheduler_baseline.py ^
+      --scheduler static ^
+      --scenario-config ../TV1/configs/stable_load.yaml ^
+      --scheduler-config configs/schedulers.yaml ^
+      --seed 42 ^
+      --slots 500 ^
+      --output local_results/stable_load/static/seed_42
+
+Thay `static` bằng `queue_based` để chạy Queue-Based Scheduler.
+
+Runner sử dụng trực tiếp `RANSimulator` của TV1, kiểm tra Action trước
+khi áp dụng và dùng `export_results()` của TV1 để xuất KPI. Runner không
+sửa tệp cấu hình gốc và không tự tính lại KPI.
