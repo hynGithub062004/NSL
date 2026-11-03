@@ -1,0 +1,4 @@
+﻿"Scheduler","Slots","Throughput_Mbps","Delay_URLLC_ms","Drop_URLLC","SLA_Violation","RB_Utilization","Fairness"
+"Static","10","2.431","3","0","0","1","0.7301"
+"Queue-Based","10","3.52","1.8","0.1667","0.1667","1","0.9197"
+"DQN","10","1.51","2.183","0","0","1","0.6356"

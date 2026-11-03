@@ -1,0 +1,80 @@
+{
+  "schema_version": "1.0.0",
+  "request_id": "42-poor_channel-dqn-000000",
+  "state": {
+    "schema_version": "1.0.0",
+    "time_slot": 0,
+    "scenario_id": "poor_channel",
+    "seed": 42,
+    "embb": {
+      "queue_bits": 11784,
+      "cqi": 5
+    },
+    "urllc": {
+      "queue_packets": 1,
+      "queue_bits": 2560,
+      "cqi": 4,
+      "oldest_packet_delay_ms": 0.0,
+      "deadline_ms": 5.0
+    }
+  },
+  "action": {
+    "schema_version": "1.0.0",
+    "request_id": "42-poor_channel-dqn-000000",
+    "time_slot": 0,
+    "scheduler": "dqn",
+    "action_id": 4,
+    "rb_allocation": {
+      "embb": 40,
+      "urllc": 10
+    }
+  },
+  "ran_kpi": {
+    "schema_version": "1.0.0",
+    "request_id": "42-poor_channel-dqn-000000",
+    "seed": 42,
+    "scenario_id": "poor_channel",
+    "algorithm": "dqn",
+    "time_slot": 0,
+    "throughput_e": 4.42,
+    "delay_u": 0.0,
+    "drop_u": 0.0,
+    "sla_violation": 0.0,
+    "fairness": 0.986338,
+    "rb_utilization": 1.0,
+    "allocated_embb_rb": 40,
+    "allocated_urllc_rb": 10,
+    "used_embb_rb": 40,
+    "used_urllc_rb": 10,
+    "served_embb_bits": 4420,
+    "served_urllc_bits": 758,
+    "completed_urllc_packets": 0,
+    "dropped_urllc_packets": 0,
+    "units": {
+      "throughput_e": "Mbps",
+      "delay_u": "ms",
+      "drop_u": "ratio",
+      "sla_violation": "ratio",
+      "fairness": "index_0_to_1",
+      "rb_utilization": "ratio"
+    }
+  },
+  "next_state": {
+    "schema_version": "1.0.0",
+    "time_slot": 1,
+    "scenario_id": "poor_channel",
+    "seed": 42,
+    "embb": {
+      "queue_bits": 19105,
+      "cqi": 5
+    },
+    "urllc": {
+      "queue_packets": 4,
+      "queue_bits": 9482,
+      "cqi": 3,
+      "oldest_packet_delay_ms": 1.0,
+      "deadline_ms": 5.0
+    }
+  },
+  "done": false
+}

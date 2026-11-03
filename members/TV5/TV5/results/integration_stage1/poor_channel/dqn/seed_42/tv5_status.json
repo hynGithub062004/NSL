@@ -1,0 +1,52 @@
+{
+  "note": "REAL TV1 RAN + REAL TV2/TV3 action, NO REAL TV4 measurements",
+  "algorithm_requested": "dqn",
+  "fallback_count": 0,
+  "core_connected": false,
+  "simulator_summary": {
+    "schema_version": "1.0.0",
+    "scenario_id": "poor_channel",
+    "seed": 42,
+    "status": "partial",
+    "processed_slots": 10,
+    "slot_duration_ms": 1.0,
+    "simulated_duration_ms": 10.0,
+    "urllc_packet_counters": {
+      "arrived": 19,
+      "completed": 13,
+      "dropped": 0,
+      "late_completed": 0,
+      "unresolved_at_end": 6,
+      "conservation_ok": true
+    },
+    "urllc_run_rates": {
+      "completion_rate": 0.684211,
+      "drop_rate_total": 0.0,
+      "unresolved_rate": 0.315789,
+      "resolved_drop_rate": 0.0
+    },
+    "completed_urllc_delay_ms": {
+      "sample_count": 13,
+      "mean": 2.615385,
+      "p50_nearest_rank": 3.0,
+      "p95_nearest_rank": 4.0,
+      "max": 4.0
+    },
+    "traffic_and_service": {
+      "arrived_embb_bits": 137786,
+      "arrived_urllc_bits": 48640,
+      "served_embb_bits": 15096,
+      "served_urllc_bits": 33546,
+      "offered_embb_mbps": 13.7786,
+      "offered_urllc_mbps": 4.864,
+      "served_embb_mbps": 1.5096,
+      "served_urllc_mbps": 3.3546
+    },
+    "aggregation_rules": {
+      "drop_rate_total": "sum(dropped_urllc_packets) / sum(urllc_arrival_packets)",
+      "resolved_drop_rate": "sum(dropped) / (sum(completed) + sum(dropped))",
+      "delay_population": "completed URLLC packets only; dropped packets are excluded",
+      "percentile_method": "nearest rank"
+    }
+  }
+}

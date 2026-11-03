@@ -1,0 +1,71 @@
+{
+  "run_id": "run-b8f70226086848c7",
+  "status": "completed",
+  "scheduler": "dqn",
+  "scenario_id": "poor_channel",
+  "seed": 42,
+  "completed_slots": 10,
+  "target_slots": 10,
+  "fallback_count": 0,
+  "core_status": "NOT_CONNECTED",
+  "rb_conservation_ok": true,
+  "last_slots": [
+    {
+      "time_slot": 5,
+      "request_id": "run-b8f70226086848c7-000005",
+      "selected_scheduler": "dqn",
+      "action_id": 0,
+      "embb_rb": 10,
+      "urllc_rb": 40,
+      "throughput_e": 1.105,
+      "delay_u": 3,
+      "drop_u": 0
+    },
+    {
+      "time_slot": 6,
+      "request_id": "run-b8f70226086848c7-000006",
+      "selected_scheduler": "dqn",
+      "action_id": 0,
+      "embb_rb": 10,
+      "urllc_rb": 40,
+      "throughput_e": 1.105,
+      "delay_u": 2.5,
+      "drop_u": 0
+    },
+    {
+      "time_slot": 7,
+      "request_id": "run-b8f70226086848c7-000007",
+      "selected_scheduler": "dqn",
+      "action_id": 0,
+      "embb_rb": 10,
+      "urllc_rb": 40,
+      "throughput_e": 0.758,
+      "delay_u": 2.5,
+      "drop_u": 0
+    },
+    {
+      "time_slot": 8,
+      "request_id": "run-b8f70226086848c7-000008",
+      "selected_scheduler": "dqn",
+      "action_id": 3,
+      "embb_rb": 30,
+      "urllc_rb": 20,
+      "throughput_e": 1.425,
+      "delay_u": 2,
+      "drop_u": 0
+    },
+    {
+      "time_slot": 9,
+      "request_id": "run-b8f70226086848c7-000009",
+      "selected_scheduler": "dqn",
+      "action_id": 0,
+      "embb_rb": 10,
+      "urllc_rb": 40,
+      "throughput_e": 0.758,
+      "delay_u": 2.333333,
+      "drop_u": 0
+    }
+  ],
+  "result_csv": "members\\TV5\\results\\api_v2\\run-b8f70226086848c7\\unified_without_core.csv",
+  "note": "Partial smoke-test: do not use TV1 run summary for full-run KPI comparison; only a subset of slots was executed."
+}

@@ -1,0 +1,12 @@
+seed,scenario_id,time_slot,embb_cqi,urllc_cqi
+42,poor_channel,0,5,4
+42,poor_channel,1,5,3
+42,poor_channel,2,5,4
+42,poor_channel,3,5,4
+42,poor_channel,4,5,4
+42,poor_channel,5,5,4
+42,poor_channel,6,5,5
+42,poor_channel,7,4,6
+42,poor_channel,8,3,6
+42,poor_channel,9,4,6
+42,poor_channel,10,4,6

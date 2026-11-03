@@ -1,0 +1,10 @@
+{
+  "run_id": "run-f08304e9846d42bb",
+  "scheduler": "queue_based",
+  "scenario_id": "poor_channel",
+  "seed": 42,
+  "completed_slots": 10,
+  "core_status": "NOT_CONNECTED",
+  "fallback_count": 0,
+  "partial_smoke_test": true
+}

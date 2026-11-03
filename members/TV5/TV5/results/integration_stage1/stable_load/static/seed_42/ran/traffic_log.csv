@@ -1,0 +1,12 @@
+seed,scenario_id,time_slot,embb_arrival_bits,urllc_arrival_packets,urllc_arrival_bits
+42,stable_load,0,17784,1,2560
+42,stable_load,1,17741,3,7680
+42,stable_load,2,17675,0,0
+42,stable_load,3,18174,1,2560
+42,stable_load,4,18687,1,2560
+42,stable_load,5,20062,2,5120
+42,stable_load,6,18798,1,2560
+42,stable_load,7,15820,2,5120
+42,stable_load,8,20388,3,7680
+42,stable_load,9,19661,2,5120
+42,stable_load,10,18996,3,7680

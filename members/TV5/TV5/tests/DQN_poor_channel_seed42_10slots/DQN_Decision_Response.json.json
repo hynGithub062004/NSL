@@ -1,0 +1,19 @@
+{
+  "run_id": "run-b8f70226086848c7",
+  "action": {
+    "schema_version": "1.0.0",
+    "request_id": "run-b8f70226086848c7-000000",
+    "time_slot": 0,
+    "scheduler": "dqn",
+    "action_id": 4,
+    "rb_allocation": {
+      "embb": 40,
+      "urllc": 10
+    }
+  },
+  "requested_scheduler": "dqn",
+  "selected_scheduler": "dqn",
+  "fallback_used": false,
+  "scheduler_latency_ms": 71.6633,
+  "validation_latency_ms": 11.1776
+}

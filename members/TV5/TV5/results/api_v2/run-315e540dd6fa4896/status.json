@@ -1,0 +1,10 @@
+{
+  "run_id": "run-315e540dd6fa4896",
+  "scheduler": "queue_based",
+  "scenario_id": "urllc_burst",
+  "seed": 42,
+  "completed_slots": 3,
+  "core_status": "NOT_CONNECTED",
+  "fallback_count": 0,
+  "partial_smoke_test": true
+}

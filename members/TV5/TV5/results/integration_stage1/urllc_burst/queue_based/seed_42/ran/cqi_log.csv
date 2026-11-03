@@ -1,0 +1,12 @@
+seed,scenario_id,time_slot,embb_cqi,urllc_cqi
+42,urllc_burst,0,11,7
+42,urllc_burst,1,11,6
+42,urllc_burst,2,11,7
+42,urllc_burst,3,11,7
+42,urllc_burst,4,11,7
+42,urllc_burst,5,11,7
+42,urllc_burst,6,11,7
+42,urllc_burst,7,11,7
+42,urllc_burst,8,10,8
+42,urllc_burst,9,9,8
+42,urllc_burst,10,10,8

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "time_slot": 0,
+  "scenario_id": "urllc_burst",
+  "seed": 42,
+  "embb": {
+    "queue_bits": 15712,
+    "cqi": 11
+  },
+  "urllc": {
+    "queue_packets": 0,
+    "queue_bits": 0,
+    "cqi": 7,
+    "oldest_packet_delay_ms": 0.0,
+    "deadline_ms": 5.0
+  }
+}

@@ -1,0 +1,12 @@
+seed,scenario_id,time_slot,embb_arrival_bits,urllc_arrival_packets,urllc_arrival_bits
+42,poor_channel,0,11784,1,2560
+42,poor_channel,1,11741,3,7680
+42,poor_channel,2,11675,0,0
+42,poor_channel,3,12174,1,2560
+42,poor_channel,4,12687,1,2560
+42,poor_channel,5,14062,2,5120
+42,poor_channel,6,12798,1,2560
+42,poor_channel,7,9820,2,5120
+42,poor_channel,8,14388,3,7680
+42,poor_channel,9,13661,2,5120
+42,poor_channel,10,12996,3,7680
