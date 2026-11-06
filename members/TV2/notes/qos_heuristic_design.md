@@ -832,3 +832,30 @@ w_uP = 0.0
 
 Sau pilot, mọi thay đổi trọng số phải được ghi lại. Không tuning riêng theo từng
 scenario và không tuning sau khi đã khóa benchmark chính thức.
+
+## 22. Kết quả pilot và quyết định C6
+
+Pilot sử dụng seed `42`, `500 slot` và cùng ba scenario baseline.
+
+Kết quả cho thấy QoS v1 cải thiện URLLC completion rate, drop rate và mean
+delay so với Queue-Based trong cả ba scenario. QoS đồng thời duy trì eMBB
+throughput cao hơn Static trong cả ba scenario.
+
+Bộ trọng số pilot được giữ nguyên cho benchmark chính thức. Không tiếp tục
+tuning dựa riêng trên seed 42.
+
+Điều kiện C6 được khóa như sau:
+
+- Benchmark QoS-only gồm `3 scenario × 3 seed = 9 run`.
+- Mỗi run gồm `500 slot`.
+- Seed đánh giá là `42`, `43`, `44`.
+- QoS phải có URLLC completion rate cao hơn Queue-Based và URLLC drop rate
+  thấp hơn Queue-Based, xét trên trung bình ba seed của từng scenario.
+- QoS mean delay không được cao hơn Queue-Based, xét trên trung bình ba seed
+  của từng scenario.
+- QoS eMBB throughput không được thấp hơn Queue-Based quá `35%` trong bất kỳ
+  scenario nào, xét trên trung bình ba seed.
+- QoS eMBB throughput phải cao hơn Static, xét trên trung bình ba seed của
+  từng scenario.
+- Packet conservation và Action Contract phải đạt trong toàn bộ run.
+- Không thay đổi trọng số sau khi bắt đầu benchmark chính thức.
