@@ -26,6 +26,9 @@ for source_dir in (TV1_SRC, TV2_SRC):
 
 
 from run_scheduler_baseline import run_scheduler
+from schedulers import (
+    SCHEDULERS as SCHEDULER_REGISTRY,
+)
 
 
 SCENARIOS = (
@@ -34,7 +37,7 @@ SCENARIOS = (
     "poor_channel",
 )
 
-SCHEDULERS = (
+DEFAULT_SCHEDULERS = (
     "static",
     "queue_based",
 )
@@ -49,8 +52,8 @@ DEFAULT_SEEDS = (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Chạy ma trận benchmark Static và Queue-Based Scheduler "
-            "trên các kịch bản chính thức của TV1."
+            "Chạy ma trận scheduler của TV2 trên "
+            "các kịch bản chính thức của TV1."
         )
     )
 
@@ -67,6 +70,18 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         default=list(DEFAULT_SEEDS),
         help="Danh sách seed. Mặc định: 42 43 44.",
+    )
+
+    parser.add_argument(
+        "--schedulers",
+        nargs="+",
+        default=list(DEFAULT_SCHEDULERS),
+        choices=sorted(SCHEDULER_REGISTRY),
+        help=(
+            "Danh sách scheduler cần chạy. "
+            "Mặc định: static queue_based. "
+            "QoS-only: --schedulers qos_heuristic."
+        ),
     )
 
     parser.add_argument(
@@ -104,6 +119,31 @@ def validate_arguments(args: argparse.Namespace) -> None:
 
     if len(set(args.seeds)) != len(args.seeds):
         raise ValueError("Danh sách seed không được chứa giá trị trùng")
+
+    if not args.schedulers:
+        raise ValueError(
+            "Phải cung cấp ít nhất một scheduler"
+        )
+
+    if (
+        len(set(args.schedulers))
+        != len(args.schedulers)
+    ):
+        raise ValueError(
+            "Danh sách scheduler không được "
+            "chứa giá trị trùng"
+        )
+
+    unsupported_schedulers = sorted(
+        set(args.schedulers)
+        - set(SCHEDULER_REGISTRY)
+    )
+
+    if unsupported_schedulers:
+        raise ValueError(
+            "Scheduler không được hỗ trợ: "
+            f"{unsupported_schedulers}"
+        )
 
     if not args.scheduler_config.is_file():
         raise FileNotFoundError(
@@ -262,6 +302,18 @@ def validate_exported_run(
             f"actual={len(transition_lines)}"
         )
 
+    expected_action_ids = {
+        "static": 0,
+        "queue_based": 1,
+        "qos_heuristic": 2,
+    }
+
+    expected_action_id = (
+        expected_action_ids.get(
+            expected_scheduler
+        )
+    )
+
     for line_number, line in enumerate(
         transition_lines,
         start=1,
@@ -269,6 +321,29 @@ def validate_exported_run(
         transition = json.loads(line)
         action = transition["action"]
         allocation = action["rb_allocation"]
+
+        if (
+            action.get("scheduler")
+            != expected_scheduler
+        ):
+            raise RuntimeError(
+                "Sai scheduler trong Action tại "
+                f"transition {line_number}: "
+                f"expected={expected_scheduler!r}, "
+                f"actual={action.get('scheduler')!r}"
+            )
+
+        if (
+            expected_action_id is not None
+            and action.get("action_id")
+            != expected_action_id
+        ):
+            raise RuntimeError(
+                "Sai action_id tại transition "
+                f"{line_number}: "
+                f"expected={expected_action_id}, "
+                f"actual={action.get('action_id')}"
+            )
 
         embb_rb = allocation["embb"]
         urllc_rb = allocation["urllc"]
@@ -298,6 +373,76 @@ def validate_exported_run(
                     f"{allocation}"
                 )
 
+        if expected_scheduler == "qos_heuristic":
+            state = transition["state"]
+
+            embb_queue_bits = state[
+                "embb"
+            ][
+                "queue_bits"
+            ]
+
+            urllc_queue_bits = state[
+                "urllc"
+            ][
+                "queue_bits"
+            ]
+
+            if (
+                embb_queue_bits == 0
+                and urllc_queue_bits == 0
+            ):
+                expected_allocation = {
+                    "embb": 25,
+                    "urllc": 25,
+                }
+
+                if allocation != expected_allocation:
+                    raise RuntimeError(
+                        "QoS phải phân bổ 25/25 khi "
+                        "cả hai queue rỗng tại transition "
+                        f"{line_number}: {allocation}"
+                    )
+
+            elif (
+                embb_queue_bits > 0
+                and urllc_queue_bits == 0
+            ):
+                expected_allocation = {
+                    "embb": 50,
+                    "urllc": 0,
+                }
+
+                if allocation != expected_allocation:
+                    raise RuntimeError(
+                        "QoS phải phân bổ 50/0 khi "
+                        "chỉ eMBB active tại transition "
+                        f"{line_number}: {allocation}"
+                    )
+
+            elif (
+                embb_queue_bits == 0
+                and urllc_queue_bits > 0
+            ):
+                expected_allocation = {
+                    "embb": 0,
+                    "urllc": 50,
+                }
+
+                if allocation != expected_allocation:
+                    raise RuntimeError(
+                        "QoS phải phân bổ 0/50 khi "
+                        "chỉ URLLC active tại transition "
+                        f"{line_number}: {allocation}"
+                    )
+
+            elif embb_rb < 5 or urllc_rb < 5:
+                raise RuntimeError(
+                    "QoS vi phạm minimum RB khi cả "
+                    "hai queue active tại transition "
+                    f"{line_number}: {allocation}"
+                )
+
     return {
         "scenario_id": expected_scenario,
         "scheduler": expected_scheduler,
@@ -310,22 +455,26 @@ def validate_exported_run(
 
 
 def validate_common_input(
-    static_output: Path,
-    queue_output: Path,
+    reference_output: Path,
+    candidate_output: Path,
+    reference_name: str,
+    candidate_name: str,
 ) -> None:
-    static_summary = load_json(
-        static_output / "run_summary.json"
+    """Kiểm tra hai scheduler sử dụng cùng traffic đầu vào."""
+
+    reference_summary = load_json(
+        reference_output / "run_summary.json"
     )
 
-    queue_summary = load_json(
-        queue_output / "run_summary.json"
+    candidate_summary = load_json(
+        candidate_output / "run_summary.json"
     )
 
-    static_traffic = static_summary[
+    reference_traffic = reference_summary[
         "traffic_and_service"
     ]
 
-    queue_traffic = queue_summary[
+    candidate_traffic = candidate_summary[
         "traffic_and_service"
     ]
 
@@ -338,17 +487,21 @@ def validate_common_input(
 
     mismatches = {
         key: (
-            static_traffic[key],
-            queue_traffic[key],
+            reference_traffic[key],
+            candidate_traffic[key],
         )
         for key in keys
-        if static_traffic[key] != queue_traffic[key]
+        if (
+            reference_traffic[key]
+            != candidate_traffic[key]
+        )
     }
 
     if mismatches:
         raise RuntimeError(
-            "Static và Queue-Based không dùng cùng "
-            f"traffic đầu vào: {mismatches}"
+            f"{reference_name} và {candidate_name} "
+            "không dùng cùng traffic đầu vào: "
+            f"{mismatches}"
         )
 
 
@@ -359,7 +512,7 @@ def main() -> None:
     total_runs = (
         len(SCENARIOS)
         * len(args.seeds)
-        * len(SCHEDULERS)
+        * len(args.schedulers)
     )
 
     args.output_root.mkdir(
@@ -374,7 +527,7 @@ def main() -> None:
         for seed in args.seeds:
             outputs: dict[str, Path] = {}
 
-            for scheduler in SCHEDULERS:
+            for scheduler in args.schedulers:
                 current_run += 1
 
                 run_args = build_run_arguments(
@@ -426,22 +579,38 @@ def main() -> None:
                     f"seed_{seed}: PASS"
                 )
 
-            validate_common_input(
-                outputs["static"],
-                outputs["queue_based"],
-            )
+            if len(outputs) >= 2:
+                reference_name = args.schedulers[0]
 
-            print(
-                f"[INPUT CHECK] {scenario}/seed_{seed}: "
-                "PASS"
-            )
+                reference_output = outputs[
+                    reference_name
+                ]
+
+                for candidate_name in (
+                    args.schedulers[1:]
+                ):
+                    validate_common_input(
+                        reference_output=reference_output,
+                        candidate_output=outputs[
+                            candidate_name
+                        ],
+                        reference_name=reference_name,
+                        candidate_name=candidate_name,
+                    )
+
+                print(
+                    f"[INPUT CHECK] "
+                    f"{scenario}/seed_{seed}: PASS"
+                )
 
     matrix_manifest = {
         "status": "complete",
         "slots_per_run": args.slots,
         "scenarios": list(SCENARIOS),
         "seeds": list(args.seeds),
-        "schedulers": list(SCHEDULERS),
+        "schedulers": list(
+            args.schedulers
+        ),
         "expected_runs": total_runs,
         "completed_runs": len(matrix_results),
         "runs": matrix_results,
@@ -449,7 +618,7 @@ def main() -> None:
 
     manifest_path = (
         args.output_root
-        / "baseline_matrix_manifest.json"
+        / "scheduler_matrix_manifest.json"
     )
 
     manifest_path.write_text(
@@ -464,7 +633,7 @@ def main() -> None:
 
     print()
     print(
-        f"BASELINE MATRIX: "
+        f"SCHEDULER MATRIX: "
         f"{len(matrix_results)}/{total_runs} RUNS PASS"
     )
 
