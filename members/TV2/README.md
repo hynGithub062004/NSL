@@ -19,9 +19,13 @@ RAN Simulator.
 - `Action Validator`
 - `StaticScheduler`
 - `QueueBasedScheduler`
-- Cấu hình scheduler
-- Ví dụ chạy Queue-Based
-- Bộ kiểm thử Static và Queue-Based
+- `QoSHeuristicScheduler`
+- Cấu hình chung cho ba scheduler
+- Runner tích hợp với RAN Simulator
+- Matrix runner cho benchmark đa scenario và đa seed
+- Script tổng hợp kết quả baseline và QoS
+- Bộ kiểm thử Static, Queue-Based và QoS
+- Benchmark QoS chính thức với `9/9` run hoàn thành
 
 ## Static Scheduler
 
@@ -50,6 +54,39 @@ Một số trường hợp đã kiểm tra:
 - Queue `(0, 5000)` cho phân bổ `5/45`
 - Queue `(5000, 0)` cho phân bổ `45/5`
 
+## QoS-Weighted Heuristic Scheduler
+
+QoS-Weighted Heuristic sử dụng đồng thời:
+
+- Backlog của eMBB và URLLC.
+- Hiệu suất phổ tương ứng với CQI.
+- Độ khẩn cấp của URLLC theo delay và deadline.
+- Minimum RB động theo trạng thái queue.
+
+QoS sử dụng:
+
+```text
+scheduler = qos_heuristic
+action_id = 2
+```
+
+Quy tắc phân bổ theo trạng thái queue:
+
+| eMBB queue | URLLC queue | Quy tắc |
+|---:|---:|---|
+| 0 | 0 | Phân bổ `25/25 RB` |
+| > 0 | 0 | Phân bổ `50/0 RB` |
+| 0 | > 0 | Phân bổ `0/50 RB` |
+| > 0 | > 0 | Mỗi slice nhận tối thiểu `5 RB` |
+
+Khi cả hai queue active, phần RB còn lại được phân bổ dựa trên backlog
+pressure, CQI efficiency và URLLC urgency. Phương pháp largest remainder được
+sử dụng để chuyển phân bổ thực sang RB nguyên và bảo toàn tổng `50 RB`.
+
+Thiết kế chi tiết được trình bày trong:
+
+- `notes/qos_heuristic_design.md`
+
 ## Tạo môi trường
 
 Từ thư mục `members/TV2`:
@@ -62,12 +99,10 @@ Từ thư mục `members/TV2`:
     python -m unittest discover -s tests -v
     python -m pytest tests -q
 
-Kết quả dự kiến:
+Kết quả dự kiến với `unittest`:
 
-    Ran 24 tests
+    Ran 53 tests
     OK
-
-    24 passed
 
 ## Chạy ví dụ Queue-Based
 
@@ -88,15 +123,22 @@ capacity, deadline hoặc cách tính KPI trong RAN Simulator.
 
 ## Công việc tiếp theo
 
-- Tích hợp Static và Queue-Based với RAN Simulator
-- Chạy thử nghiệm trên các kịch bản chung
-- So sánh KPI giữa Static và Queue-Based
-- Phát triển QoS-Weighted Heuristic
-- Bàn giao giao diện scheduler cho Orchestrator
+- So sánh QoS-Weighted Heuristic với DQN trên cùng ma trận đánh giá.
+- Bàn giao giao diện scheduler cho Orchestrator.
+- Tích hợp scheduler với luồng điều phối liên thành viên.
+- Đánh giá ảnh hưởng của SRv6 path và Core Policy khi các thành phần tương ứng
+  được tích hợp.
+- Rà soát tài liệu bàn giao và Pull Request của TV2.
 
 ## Chạy tích hợp với RAN Simulator
 
-Runner tích hợp hỗ trợ Static và Queue-Based Scheduler:
+Runner tích hợp hỗ trợ ba scheduler:
+
+- `static`
+- `queue_based`
+- `qos_heuristic`
+
+Ví dụ chạy Static từ thư mục `members/TV2`:
 
     python scripts/run_scheduler_baseline.py ^
       --scheduler static ^
@@ -106,7 +148,23 @@ Runner tích hợp hỗ trợ Static và Queue-Based Scheduler:
       --slots 500 ^
       --output local_results/stable_load/static/seed_42
 
-Thay `static` bằng `queue_based` để chạy Queue-Based Scheduler.
+Thay `static` bằng `queue_based` hoặc `qos_heuristic` để chạy scheduler tương
+ứng.
+
+Ví dụ chạy QoS từ thư mục gốc repository:
+
+    python members\TV2\scripts
+un_scheduler_baseline.py ^
+      --scheduler qos_heuristic ^
+      --scenario-config members\TV1\configs\stable_load.yaml ^
+      --scheduler-config members\TV2\configs\schedulers.yaml ^
+      --seed 42 ^
+      --slots 500 ^
+      --output local_results\qos_example
+
+Runner lấy `simulation.slot_duration_ms` từ cấu hình scenario của TV1 rồi đưa
+vào cấu hình hiệu dụng của scheduler. Giá trị này không được hard-code trong
+`schedulers.yaml`.
 
 Runner sử dụng trực tiếp `RANSimulator` của TV1, kiểm tra Action trước
 khi áp dụng và dùng `export_results()` của TV1 để xuất KPI. Runner không
@@ -136,10 +194,12 @@ Benchmark chính thức sử dụng:
 
 Từ thư mục gốc repository, chạy:
 
-    python members\TV2\scripts\run_baseline_matrix.py ^
+    python members\TV2\scripts
+un_baseline_matrix.py ^
+      --schedulers static queue_based ^
       --slots 500 ^
       --seeds 42 43 44 ^
-      --output-root local_results\baseline_matrix
+      --output-root local_resultsaseline_matrix
 
 Script thực hiện các kiểm tra:
 
@@ -153,7 +213,7 @@ Script thực hiện các kiểm tra:
 
 Kết quả chạy thô được lưu cục bộ trong:
 
-    local_results\baseline_matrix
+    local_resultsaseline_matrix
 
 Thư mục `local_results` không được đưa vào Git.
 
@@ -162,8 +222,9 @@ Thư mục `local_results` không được đưa vào Git.
 Sau khi ma trận hoàn thành, chạy:
 
     python members\TV2\scripts\summarize_baseline_results.py ^
-      --input-root local_results\baseline_matrix ^
-      --output-dir members\TV2\results ^
+      --input-root local_resultsaseline_matrix ^
+      --output-dir members\TV2
+esults ^
       --expected-slots 500
 
 Script tổng hợp tạo hai tệp:
@@ -198,7 +259,7 @@ Phân tích baseline tập trung vào:
 KPI được lấy trực tiếp từ RAN Simulator của TV1. TV2 không tự tính lại
 throughput, delay hoặc packet drop.
 
-Với cùng scenario và seed, Static cùng Queue-Based phải nhận cùng:
+Với cùng scenario và seed, các scheduler phải nhận cùng:
 
 - `arrived_embb_bits`
 - `arrived_urllc_bits`
@@ -207,3 +268,72 @@ Với cùng scenario và seed, Static cùng Queue-Based phải nhận cùng:
 
 Nếu các giá trị đầu vào này không giống nhau, kết quả không được sử dụng để
 so sánh scheduler.
+
+## Benchmark QoS-Weighted Heuristic
+
+Benchmark QoS chính thức sử dụng:
+
+- Scheduler: `qos_heuristic`.
+- Scenario: `stable_load`, `urllc_burst`, `poor_channel`.
+- Seed: `42`, `43`, `44`.
+- Số slot mỗi run: `500`.
+- Tổng số lần chạy: `9`.
+
+### Chạy ma trận QoS
+
+Từ thư mục gốc repository:
+
+    python members\TV2\scripts
+un_baseline_matrix.py ^
+      --schedulers qos_heuristic ^
+      --seeds 42 43 44 ^
+      --slots 500 ^
+      --output-root local_results\qos_official
+
+Nếu thư mục `local_results\qos_official` đã tồn tại, matrix runner sẽ từ chối
+ghi đè. Không sử dụng `--overwrite` đối với dữ liệu benchmark chính thức đã
+được nghiệm thu.
+
+Kết quả hợp lệ cần kết thúc bằng:
+
+    SCHEDULER MATRIX: 9/9 RUNS PASS
+
+### Tổng hợp kết quả QoS
+
+    python members\TV2\scripts\summarize_qos_results.py ^
+      --input-root local_results\qos_official ^
+      --output-dir members\TV2
+esults ^
+      --expected-slots 500
+
+Script tạo:
+
+- `results/qos_runs.csv`
+- `results/qos_aggregate.csv`
+
+Báo cáo phân tích được lưu tại:
+
+- `results/qos_analysis.md`
+
+### Kết quả QoS chính thức
+
+| Scenario | eMBB throughput (Mbps) | URLLC completion | URLLC drop | Mean delay (ms) |
+|---|---:|---:|---:|---:|
+| `stable_load` | 13.237833 | 0.877511 | 0.120720 | 1.837906 |
+| `urllc_burst` | 11.854193 | 0.633974 | 0.361688 | 2.852276 |
+| `poor_channel` | 3.911875 | 0.440394 | 0.555656 | 3.919765 |
+
+Trên trung bình ba seed, QoS có completion rate cao hơn, drop rate thấp hơn và
+mean delay thấp hơn Queue-Based trong cả ba scenario.
+
+Mức suy giảm eMBB so với Queue-Based là:
+
+- `stable_load`: `9.68%`
+- `urllc_burst`: `4.37%`
+- `poor_channel`: `28.96%`
+
+Mức suy giảm lớn nhất là `28.96%`, thấp hơn giới hạn C6 là `35%`. QoS cũng duy
+trì eMBB throughput cao hơn Static trong cả ba scenario.
+
+Bộ trọng số QoS v1 đạt phạm vi benchmark hiện tại nhưng chưa được chứng minh
+là cấu hình tối ưu.
