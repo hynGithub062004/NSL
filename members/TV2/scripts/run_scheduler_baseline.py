@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -41,7 +43,7 @@ from schedulers.action_validator import validate_action
 def load_yaml(
     path: Path,
 ) -> dict[str, Any]:
-    """Đọc một tệp YAML và trả về dictionary."""
+    """Doc mot tep YAML va tra ve dictionary."""
 
     with path.open(
         "r",
@@ -51,19 +53,20 @@ def load_yaml(
 
     if not isinstance(data, dict):
         raise ValueError(
-            f"Nội dung YAML phải là dictionary: {path}"
+            f"Noi dung YAML phai la dictionary: {path}"
         )
 
     return data
 
 
 def parse_arguments() -> argparse.Namespace:
-    """Đọc các tham số dòng lệnh."""
+    """Doc cac tham so dong lenh."""
 
     parser = argparse.ArgumentParser(
         description=(
-            "Chạy Static hoặc Queue-Based Scheduler "
-            "của TV2 với RAN Simulator của TV1."
+            "Chay Static, Queue-Based hoac QoS "
+            "Heuristic Scheduler cua TV2 voi "
+            "RAN Simulator cua TV1."
         )
     )
 
@@ -72,8 +75,9 @@ def parse_arguments() -> argparse.Namespace:
         required=True,
         choices=sorted(SCHEDULERS),
         help=(
-            "Tên scheduler cần chạy. "
-            "Các giá trị hiện có: static, queue_based."
+            "Ten scheduler can chay. "
+            "Cac gia tri hien co: static, "
+            "queue_based, qos_heuristic."
         ),
     )
 
@@ -82,8 +86,8 @@ def parse_arguments() -> argparse.Namespace:
         required=True,
         type=Path,
         help=(
-            "Đường dẫn tới tệp cấu hình kịch bản "
-            "của TV1."
+            "Duong dan toi tep cau hinh kich ban "
+            "cua TV1."
         ),
     )
 
@@ -98,8 +102,8 @@ def parse_arguments() -> argparse.Namespace:
             / "schedulers.yaml"
         ),
         help=(
-            "Đường dẫn tới tệp cấu hình scheduler "
-            "của TV2."
+            "Duong dan toi tep cau hinh scheduler "
+            "cua TV2."
         ),
     )
 
@@ -107,7 +111,7 @@ def parse_arguments() -> argparse.Namespace:
         "--seed",
         type=int,
         default=42,
-        help="Seed của lần chạy. Mặc định: 42.",
+        help="Seed cua lan chay. Mac dinh: 42.",
     )
 
     parser.add_argument(
@@ -115,8 +119,8 @@ def parse_arguments() -> argparse.Namespace:
         type=int,
         default=10,
         help=(
-            "Số time slot cần chạy. "
-            "Mặc định: 10."
+            "So time slot can chay. "
+            "Mac dinh: 10."
         ),
     )
 
@@ -124,7 +128,7 @@ def parse_arguments() -> argparse.Namespace:
         "--output",
         required=True,
         type=Path,
-        help="Thư mục lưu kết quả mô phỏng.",
+        help="Thu muc luu ket qua mo phong.",
     )
 
     return parser.parse_args()
@@ -133,27 +137,27 @@ def parse_arguments() -> argparse.Namespace:
 def validate_arguments(
     arguments: argparse.Namespace,
 ) -> None:
-    """Kiểm tra tính hợp lệ của tham số đầu vào."""
+    """Kiem tra tinh hop le cua tham so dau vao."""
 
     if arguments.seed < 0:
         raise ValueError(
-            "seed phải là số nguyên không âm"
+            "seed phai la so nguyen khong am"
         )
 
     if arguments.slots <= 0:
         raise ValueError(
-            "slots phải lớn hơn 0"
+            "slots phai lon hon 0"
         )
 
     if not arguments.scenario_config.is_file():
         raise FileNotFoundError(
-            "Không tìm thấy tệp cấu hình kịch bản: "
+            "Khong tim thay tep cau hinh kich ban: "
             f"{arguments.scenario_config}"
         )
 
     if not arguments.scheduler_config.is_file():
         raise FileNotFoundError(
-            "Không tìm thấy tệp cấu hình scheduler: "
+            "Khong tim thay tep cau hinh scheduler: "
             f"{arguments.scheduler_config}"
         )
 
@@ -161,7 +165,7 @@ def validate_arguments(
 def run_scheduler(
     arguments: argparse.Namespace,
 ) -> dict[str, Any]:
-    """Chạy scheduler với RAN Simulator."""
+    """Chay scheduler voi RAN Simulator."""
 
     validate_arguments(arguments)
 
@@ -182,11 +186,66 @@ def run_scheduler(
         dict,
     ):
         raise ValueError(
-            "Cấu hình TV1 phải có mục simulation"
+            "Cau hinh TV1 phai co muc simulation"
         )
 
+    slot_duration_ms = simulation_config.get(
+        "slot_duration_ms"
+    )
+
+    if (
+        isinstance(slot_duration_ms, bool)
+        or not isinstance(
+            slot_duration_ms,
+            (int, float),
+        )
+    ):
+        raise ValueError(
+            "simulation.slot_duration_ms phai la "
+            "mot so huu han duong"
+        )
+
+    slot_duration_ms = float(
+        slot_duration_ms
+    )
+
+    if (
+        not math.isfinite(slot_duration_ms)
+        or slot_duration_ms <= 0
+    ):
+        raise ValueError(
+            "simulation.slot_duration_ms phai la "
+            "mot so huu han duong"
+        )
+
+    effective_scheduler_config = deepcopy(
+        scheduler_config
+    )
+
+    effective_common_config = (
+        effective_scheduler_config.setdefault(
+            "common",
+            {},
+        )
+    )
+
+    if not isinstance(
+        effective_common_config,
+        dict,
+    ):
+        raise ValueError(
+            "Cau hinh TV2 phai co muc common "
+            "dang dictionary"
+        )
+
+    effective_common_config[
+        "slot_duration_ms"
+    ] = slot_duration_ms
+
     common_scheduler_config = (
-        scheduler_config.get("common")
+        effective_scheduler_config.get(
+            "common"
+        )
     )
 
     if not isinstance(
@@ -194,11 +253,11 @@ def run_scheduler(
         dict,
     ):
         raise ValueError(
-            "Cấu hình TV2 phải có mục common"
+            "Cau hinh TV2 phai co muc common"
         )
 
-    # Chỉ ghi đè cấu hình trong bộ nhớ.
-    # Tệp YAML gốc của TV1 không bị chỉnh sửa.
+    # Chi ghi de cau hinh RAN trong bo nho.
+    # Tep YAML goc cua TV1 khong bi chinh sua.
     simulation_config["seed"] = arguments.seed
     simulation_config["slots"] = arguments.slots
 
@@ -219,7 +278,7 @@ def run_scheduler(
     while not simulator.done:
         action = scheduler.select_action(
             state=state,
-            config=scheduler_config,
+            config=effective_scheduler_config,
         )
 
         validate_action(
@@ -249,15 +308,15 @@ def run_scheduler(
 
         if next_state is None:
             raise RuntimeError(
-                "RAN Simulator trả next_state=None "
-                "trước khi mô phỏng hoàn thành"
+                "RAN Simulator tra next_state=None "
+                "truoc khi mo phong hoan thanh"
             )
 
         state = next_state
 
     if processed_slots != arguments.slots:
         raise RuntimeError(
-            "Số slot đã xử lý không đúng: "
+            "So slot da xu ly khong dung: "
             f"expected={arguments.slots}, "
             f"actual={processed_slots}"
         )
@@ -310,7 +369,7 @@ def run_scheduler(
 
 
 def main() -> None:
-    """Điểm bắt đầu của chương trình."""
+    """Diem bat dau cua chuong trinh."""
 
     arguments = parse_arguments()
 

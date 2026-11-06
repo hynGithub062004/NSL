@@ -11,3 +11,15 @@ queue_based:
   min_rb_embb: 5
   min_rb_urllc: 5
   action_id: 1
+
+qos_heuristic:
+  action_id: 2
+  min_rb_embb: 5
+  min_rb_urllc: 5
+  embb_queue_weight: 0.70
+  embb_cqi_weight: 0.30
+  urllc_queue_weight: 0.45
+  urllc_urgency_weight: 1.25
+  urllc_cqi_weight: 0.10
+  low_cqi_compensation_weight: 0.0
+  urgency_power: 2.0
