@@ -1,0 +1,3 @@
+scenario_id,batch_id,slice_id,runs,total_sent,total_received,overall_packet_loss_pct,mean_rtt_ms,pooled_rtt_p95_ms
+core_tc_qos,20261106_073217,embb,5,300,300,0.0,7.5146,9.22
+core_tc_qos,20261106_073217,urllc,5,300,300,0.0,3.3884,4.97
