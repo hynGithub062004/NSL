@@ -1,0 +1,1 @@
+{"bind":"127.0.0.1:8018","core_controller":{"requires_confirmation":true,"status":"ok"},"core_kpi":{"is_live":false,"missing_files":[],"status":"ok"},"mode":"controlled_apply_plus_historical_kpi","service":"tv4-core-unified","status":"ok"}

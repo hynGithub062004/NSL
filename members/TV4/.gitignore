@@ -1,0 +1,23 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Temporary files
+*.log
+*.tmp
+*.bak
+.DS_Store
+
+# Local runtime data
+successful_requests.json
+policy_events.json
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+id_rsa
+id_ed25519

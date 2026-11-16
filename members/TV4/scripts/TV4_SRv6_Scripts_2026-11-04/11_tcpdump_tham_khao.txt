@@ -1,0 +1,32 @@
+CAC LENH BAT GOI MINH CHUNG (CHAY TREN DUNG NODE; CTRL+C DE DUNG)
+
+1. Chup R1 - eMBB (sau khi chon eMBB):
+   tcpdump -ni eth1 -vv 'ip6 and ip6[6] == 43'
+   Client: ping -c 5 2001:db8:40::2
+   Doi: outer dst 2001:db8:200::2, SRH type 4, segleft=1.
+
+2. Chup R2 - eMBB:
+   tcpdump -ni eth1 -vv 'ip6 and ip6[6] == 43'
+   Client: ping -c 5 2001:db8:40::2
+   Doi: outer dst 2001:db8:400::4, segleft=0.
+
+3. Chup R1 - URLLC (sau khi chon URLLC):
+   tcpdump -ni eth2 -vv 'ip6 and ip6[6] == 43'
+   Client: ping -c 5 2001:db8:40::2
+   Doi: outer dst 2001:db8:300::3, segleft=1.
+
+4. Chup R3 - URLLC:
+   tcpdump -ni eth1 -vv 'ip6 and ip6[6] == 43'
+   Client: ping -c 5 2001:db8:40::2
+   Doi: outer dst 2001:db8:400::4, segleft=0.
+
+5. Chup R4 - sau End.DX6 (ca hai policy):
+   tcpdump -ni eth2 -vv 'icmp6 and (host 2001:db8:10::2 or host 2001:db8:40::2)'
+   Client: ping -c 5 2001:db8:40::2
+   Doi: IPv6 goc echo request Client -> Server va echo reply chieu nguoc.
+
+Luu y:
+- Chay lenh tcpdump truoc, sau do moi ping.
+- Trong `tcpdump`, "packets dropped by kernel" la thong ke bat goi, khong dong nghia mat goi mang.
+- Traceroute co the hien dau * do co che SRv6; xac minh bang ping + tcpdump.
+- Huong ve tu Server -> Client mac dinh qua R4 -> R2 -> R1 (ca khi policy xuoi qua R3).

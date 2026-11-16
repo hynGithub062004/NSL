@@ -1,0 +1,5 @@
+scenario_id,batch_id,slice_id,protocol,runs_requested,successful_tests,failed_tests,receiver_mbps_mean,receiver_mbps_stdev,tcp_retransmits_mean,udp_jitter_ms_mean,udp_loss_pct_mean,udp_total_lost,udp_total_packets,udp_weighted_loss_pct
+core_tc_qos,20261106_080010,embb,tcp,5,5,0,57.32716,2.50038,115.2,,,,,
+core_tc_qos,20261106_080010,embb,udp,5,5,0,19.97863,0.00179,,0.36979,0.096,200,208387,0.095975
+core_tc_qos,20261106_080010,urllc,tcp,5,5,0,26.30012,0.01946,18.2,,,,,
+core_tc_qos,20261106_080010,urllc,udp,5,5,0,19.9959,0.00241,,0.41137,0.01536,32,208357,0.015358

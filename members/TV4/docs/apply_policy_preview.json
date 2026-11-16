@@ -1,0 +1,5 @@
+{
+    "request_id":  "tv5-demo-001",
+    "policy":  "low_latency",
+    "slice_id":  "embb"
+}
