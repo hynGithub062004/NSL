@@ -1,0 +1,8 @@
+Áp dụng tại thư mục gốc của repo NSL đang ở nhánh main.
+1. Sao lưu nếu máy đã sửa web/app.py hoặc web/index.html.
+2. Xóa thư mục lồng members/TV5/TV5 cũ (bản cũ vẫn còn trong Git history).
+3. Giải nén gói này vào gốc repo, cho phép ghi đè.
+4. Kiểm tra git status, chạy python -m pytest members/TV5/tests web/test_web.py web/test_tv5.py -q.
+5. git add -A; git commit -m "Replace legacy TV5 folder and add integrated web handover"; git push origin main.
+Không commit members/TV5/results, web_data, __pycache__.
+Gói chỉ chứa mã, test, Word và ZIP bàn giao TV4; kết quả chạy cũ đã xóa khỏi TV5/TV5 theo yêu cầu, vẫn tồn tại trong Git history.
