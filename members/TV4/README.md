@@ -88,6 +88,6 @@ Dữ liệu chi tiết của từng lượt đo và số liệu tổng hợp n�
 - Script `restore_from_gns3_vm.sh` ban đầu chỉ phục hồi cấu hình nền; không tự động bảo đảm hai slice và QoS mới được dựng đủ.
 - Tránh đưa mật khẩu, token, khóa SSH, môi trường `.venv`, file ledger sự kiện có thông tin riêng hoặc dữ liệu tạm lên repository công khai.
 
-Tài liệu giao tiếp TV4 ↔ TV5 nằm tại `docs/README_TV5.md`.
+Tài liệu giao tiếp TV4 ↔ TV5 nằm tại `../TV5/integration/README_TV4_Core_API.md`.
 
 **Phụ thuộc để tái tạo**: Python ≥ 3.10 và Flask 3.1.3 cho Controller; GNS3 VM, Docker image tùy chỉnh `gns3-srv6:1.0`, `iproute2` (bao gồm `ip`, `tc`), công cụ `ping`, `iperf3`, SSH và quyền thực hiện lệnh `sudo -n docker` khi dùng Controller. Mã nguồn xây dựng Docker image và tự động dựng toàn bộ môi trường hiện **chưa** được đưa vào gói này. Kết quả `results/` tham chiếu log trên GNS3 VM, nhưng log gốc không nằm trong gói nộp.
