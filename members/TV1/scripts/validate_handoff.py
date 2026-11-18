@@ -31,6 +31,62 @@ REQUIRED_KPI_COLUMNS = {
 }
 
 
+def check_e2e_exports(results: Path, rows: list[dict], summary: dict, manifest: dict) -> dict:
+    """Cross-check ran_embb_slots.csv and ran_urllc_packets.csv with TV1 outputs."""
+    embb_path = results / "ran_embb_slots.csv"
+    urllc_path = results / "ran_urllc_packets.csv"
+    if not embb_path.exists() or not urllc_path.exists():
+        raise ValueError("missing ran_embb_slots.csv or ran_urllc_packets.csv")
+    run_id = manifest["run_id"]
+    with embb_path.open(encoding="utf-8", newline="") as handle:
+        embb_rows = list(csv.DictReader(handle))
+    with urllc_path.open(encoding="utf-8", newline="") as handle:
+        urllc_rows = list(csv.DictReader(handle))
+
+    if len(embb_rows) != summary["processed_slots"]:
+        raise ValueError("ran_embb_slots.csv row count != processed_slots")
+    metrics_by_slot = {int(r["time_slot"]): int(r["served_embb_bits"]) for r in rows}
+    for row in embb_rows:
+        slot = int(row["time_slot"])
+        if row["run_id"] != run_id:
+            raise ValueError(f"ran_embb_slots.csv run_id mismatch at slot {slot}")
+        if int(row["served_embb_bits"]) != metrics_by_slot.get(slot):
+            raise ValueError(f"served_embb_bits mismatch with ran_metrics.csv at slot {slot}")
+        if float(row["emit_time_ms"]) != (slot + 1) * float(summary["slot_duration_ms"]):
+            raise ValueError(f"emit_time_ms convention broken at slot {slot}")
+    embb_total = sum(int(r["served_embb_bits"]) for r in embb_rows)
+    if embb_total != summary["traffic_and_service"]["served_embb_bits"]:
+        raise ValueError("sum(ran_embb_slots.served_embb_bits) != run_summary served_embb_bits")
+
+    counters = summary["urllc_packet_counters"]
+    status_count = {"completed": 0, "dropped": 0, "unresolved": 0}
+    for row in urllc_rows:
+        if row["run_id"] != run_id:
+            raise ValueError(f"ran_urllc_packets.csv run_id mismatch for {row['packet_id']}")
+        status_count[row["final_status"]] += 1
+        if row["final_status"] == "completed":
+            emitted = float(row["emit_time_ms"]) - float(row["arrival_time_ms"])
+            if emitted != float(row["delay_ms"]):
+                raise ValueError(f"emit/arrival/delay mismatch for {row['packet_id']}")
+        elif row["emit_time_ms"] != "":
+            raise ValueError(f"non-completed packet has emit_time_ms: {row['packet_id']}")
+    if len(urllc_rows) != counters["arrived"]:
+        raise ValueError("ran_urllc_packets.csv row count != arrived URLLC packets")
+    for status, key in (
+        ("completed", "completed"),
+        ("dropped", "dropped"),
+        ("unresolved", "unresolved_at_end"),
+    ):
+        if status_count[status] != counters[key]:
+            raise ValueError(f"URLLC {status} count mismatch with run_summary.json")
+    return {
+        "embb_slots": len(embb_rows),
+        "embb_served_bits_total": embb_total,
+        "urllc_packets": len(urllc_rows),
+        "urllc_status": status_count,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", required=True)
@@ -58,6 +114,7 @@ def main() -> int:
         raise ValueError("run_summary processed_slots does not match ran_metrics.csv")
     if not manifest.get("run_id") or not manifest.get("config_sha256"):
         raise ValueError("run_manifest is missing reproducibility identifiers")
+    e2e = check_e2e_exports(results, rows, summary, manifest)
     print(
         json.dumps(
             {
@@ -65,6 +122,7 @@ def main() -> int:
                 "rows": len(rows),
                 "run_id": manifest["run_id"],
                 "packet_conservation": True,
+                "e2e_exports": e2e,
             },
             indent=2,
         )

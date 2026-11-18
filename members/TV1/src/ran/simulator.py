@@ -20,6 +20,57 @@ from .schemas import SCHEMA_VERSION, validate_action, validate_kpi, validate_sta
 from .traffic import TrafficGenerator
 
 
+# Version of the per-packet / per-slot End-to-End export files. These files are
+# additive: they do not change the frozen 1.0.0 State/Action/KPI contracts.
+E2E_EXPORT_VERSION = "1.0.0"
+URLLC_PACKETS_FILE = "ran_urllc_packets.csv"
+EMBB_SLOTS_FILE = "ran_embb_slots.csv"
+
+URLLC_PACKET_COLUMNS = (
+    "e2e_export_version",
+    "run_id",
+    "seed",
+    "scenario_id",
+    "packet_id",
+    "arrival_slot",
+    "arrival_time_ms",
+    "size_bits",
+    "deadline_ms",
+    "deadline_time_ms",
+    "final_status",
+    "completion_slot",
+    "drop_slot",
+    "resolved_slot",
+    "resolved_request_id",
+    "resolved_algorithm",
+    "served_bits",
+    "remaining_bits",
+    "delay_ms",
+    "emit_time_ms",
+)
+
+EMBB_SLOT_COLUMNS = (
+    "e2e_export_version",
+    "run_id",
+    "seed",
+    "scenario_id",
+    "algorithm",
+    "request_id",
+    "time_slot",
+    "slot_start_ms",
+    "slot_end_ms",
+    "emit_time_ms",
+    "embb_cqi",
+    "allocated_embb_rb",
+    "used_embb_rb",
+    "capacity_bits",
+    "arrival_bits",
+    "queue_before_bits",
+    "served_embb_bits",
+    "queue_after_bits",
+)
+
+
 class SimulationFinishedError(RuntimeError):
     """Raised when an action is applied after the configured final slot."""
 
@@ -40,6 +91,10 @@ class RANSimulator:
         self.metrics_log: list[dict] = []
         self.transition_log: list[dict] = []
         self.completed_delay_log_ms: list[float] = []
+        # Per-packet URLLC lifecycle, keyed by packet_id in arrival order.
+        self.urllc_packet_log: dict[str, dict] = {}
+        # Per-slot eMBB service actually delivered by apply_action().
+        self.embb_slot_log: list[dict] = []
         self.seed = 0
         self.time_slot = 0
         self.done = False
@@ -80,6 +135,8 @@ class RANSimulator:
         self.metrics_log.clear()
         self.transition_log.clear()
         self.completed_delay_log_ms.clear()
+        self.urllc_packet_log.clear()
+        self.embb_slot_log.clear()
         self._prepare_slot()
         return self.get_state()
 
@@ -87,6 +144,20 @@ class RANSimulator:
         arrival = self.traffic.generate(self.time_slot)
         self.embb_queue.enqueue(arrival.embb_bits)
         self.urllc_queue.enqueue(arrival.urllc_packets)
+        for packet in arrival.urllc_packets:
+            self.urllc_packet_log[packet.packet_id] = {
+                "packet_id": packet.packet_id,
+                "arrival_slot": packet.arrival_slot,
+                "size_bits": packet.size_bits,
+                "deadline_ms": packet.deadline_ms,
+                "final_status": "unresolved",
+                "completion_slot": None,
+                "drop_slot": None,
+                "resolved_request_id": None,
+                "resolved_algorithm": None,
+                "remaining_bits": packet.size_bits,
+                "delay_ms": None,
+            }
         self._current_cqi = self.cqi.update()
         self.traffic_log.append(
             {
@@ -186,6 +257,16 @@ class RANSimulator:
         )
         validate_kpi(kpi)
         self.metrics_log.append(copy.deepcopy(kpi))
+        self._record_e2e_slot(
+            action=action,
+            embb_demand=embb_demand,
+            embb_capacity=embb_capacity,
+            served_embb=served_embb,
+            used_embb_rb=used_embb_rb,
+            completed_packets=urllc_service.completed_packets,
+            completed_delays=completed_delays,
+            dropped_packets=dropped,
+        )
 
         self.time_slot += 1
         self.done = self.time_slot >= self.total_slots
@@ -205,9 +286,154 @@ class RANSimulator:
         self.transition_log.append(copy.deepcopy(transition))
         return transition
 
+    def _record_e2e_slot(
+        self,
+        *,
+        action: dict[str, Any],
+        embb_demand: int,
+        embb_capacity: int,
+        served_embb: int,
+        used_embb_rb: int,
+        completed_packets: tuple,
+        completed_delays: list[float],
+        dropped_packets: tuple,
+    ) -> None:
+        """Record the data TV4 must replay: eMBB bits served and URLLC fates."""
+        slot = self.time_slot
+        request_id = action["request_id"]
+        algorithm = action["scheduler"]
+        arrival_bits = self.traffic_log[-1]["embb_arrival_bits"]
+        self.embb_slot_log.append(
+            {
+                "algorithm": algorithm,
+                "request_id": request_id,
+                "time_slot": slot,
+                "embb_cqi": self._current_cqi["embb"],
+                "allocated_embb_rb": action["rb_allocation"]["embb"],
+                "used_embb_rb": used_embb_rb,
+                "capacity_bits": embb_capacity,
+                "arrival_bits": arrival_bits,
+                "queue_before_bits": embb_demand,
+                "served_embb_bits": served_embb,
+                "queue_after_bits": self.embb_queue.bits,
+            }
+        )
+        for packet, delay in zip(completed_packets, completed_delays):
+            record = self.urllc_packet_log[packet.packet_id]
+            record.update(
+                final_status="completed",
+                completion_slot=slot,
+                resolved_request_id=request_id,
+                resolved_algorithm=algorithm,
+                remaining_bits=packet.remaining_bits,
+                delay_ms=delay,
+            )
+        for packet in dropped_packets:
+            record = self.urllc_packet_log[packet.packet_id]
+            record.update(
+                final_status="dropped",
+                drop_slot=slot,
+                resolved_request_id=request_id,
+                resolved_algorithm=algorithm,
+                remaining_bits=packet.remaining_bits,
+            )
+        # Keep remaining bits of still-queued packets current (partial service).
+        for packet in self.urllc_queue.packets:
+            self.urllc_packet_log[packet.packet_id]["remaining_bits"] = packet.remaining_bits
+
+    def build_urllc_packet_rows(self, run_id: str) -> list[dict]:
+        """One row per generated URLLC packet with its final lifecycle state.
+
+        Time convention: slot ``t`` spans ``[t*T, (t+1)*T)`` ms from the run
+        start, where ``T`` is ``slot_duration_ms`` and the first slot is 0. A
+        packet arrives at the start of its arrival slot. A packet completed in
+        slot ``c`` is emitted at the end of that slot, ``(c+1)*T`` ms, so
+        ``emit_time_ms - arrival_time_ms == delay_ms``.
+        """
+        duration = self.slot_duration_ms
+        rows: list[dict] = []
+        for record in self.urllc_packet_log.values():
+            completion = record["completion_slot"]
+            drop = record["drop_slot"]
+            resolved = completion if completion is not None else drop
+            arrival_time = record["arrival_slot"] * duration
+            rows.append(
+                {
+                    "e2e_export_version": E2E_EXPORT_VERSION,
+                    "run_id": run_id,
+                    "seed": self.seed,
+                    "scenario_id": self.scenario_id,
+                    "packet_id": record["packet_id"],
+                    "arrival_slot": record["arrival_slot"],
+                    "arrival_time_ms": arrival_time,
+                    "size_bits": record["size_bits"],
+                    "deadline_ms": record["deadline_ms"],
+                    "deadline_time_ms": arrival_time + record["deadline_ms"],
+                    "final_status": record["final_status"],
+                    "completion_slot": completion,
+                    "drop_slot": drop,
+                    "resolved_slot": resolved,
+                    "resolved_request_id": record["resolved_request_id"],
+                    "resolved_algorithm": record["resolved_algorithm"],
+                    "served_bits": record["size_bits"] - record["remaining_bits"],
+                    "remaining_bits": record["remaining_bits"],
+                    "delay_ms": record["delay_ms"],
+                    "emit_time_ms": (completion + 1) * duration
+                    if completion is not None
+                    else None,
+                }
+            )
+        return rows
+
+    def build_embb_slot_rows(self, run_id: str) -> list[dict]:
+        """One row per processed slot with eMBB bits actually served.
+
+        Bits served in slot ``t`` are emitted at the end of that slot,
+        ``emit_time_ms = (t+1)*slot_duration_ms`` from the run start.
+        """
+        duration = self.slot_duration_ms
+        rows: list[dict] = []
+        for record in self.embb_slot_log:
+            slot = record["time_slot"]
+            rows.append(
+                {
+                    "e2e_export_version": E2E_EXPORT_VERSION,
+                    "run_id": run_id,
+                    "seed": self.seed,
+                    "scenario_id": self.scenario_id,
+                    "algorithm": record["algorithm"],
+                    "request_id": record["request_id"],
+                    "time_slot": slot,
+                    "slot_start_ms": slot * duration,
+                    "slot_end_ms": (slot + 1) * duration,
+                    "emit_time_ms": (slot + 1) * duration,
+                    "embb_cqi": record["embb_cqi"],
+                    "allocated_embb_rb": record["allocated_embb_rb"],
+                    "used_embb_rb": record["used_embb_rb"],
+                    "capacity_bits": record["capacity_bits"],
+                    "arrival_bits": record["arrival_bits"],
+                    "queue_before_bits": record["queue_before_bits"],
+                    "served_embb_bits": record["served_embb_bits"],
+                    "queue_after_bits": record["queue_after_bits"],
+                }
+            )
+        return rows
+
     def export_results(self, output_dir: str | Path) -> None:
         output = Path(output_dir)
         output.mkdir(parents=True, exist_ok=True)
+        manifest = self.build_run_manifest()
+        run_id = manifest["run_id"]
+        self._write_csv_columns(
+            output / URLLC_PACKETS_FILE,
+            URLLC_PACKET_COLUMNS,
+            self.build_urllc_packet_rows(run_id),
+        )
+        self._write_csv_columns(
+            output / EMBB_SLOTS_FILE,
+            EMBB_SLOT_COLUMNS,
+            self.build_embb_slot_rows(run_id),
+        )
         self._write_csv(output / "traffic_log.csv", self.traffic_log)
         self._write_csv(output / "cqi_log.csv", self.cqi_log)
         self._write_csv(output / "ran_metrics.csv", self.metrics_log, flatten_units=True)
@@ -234,7 +460,7 @@ class RANSimulator:
             encoding="utf-8",
         )
         (output / "run_manifest.json").write_text(
-            json.dumps(self.build_run_manifest(), ensure_ascii=False, indent=2) + "\n",
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
 
@@ -368,6 +594,27 @@ class RANSimulator:
             },
             "config": self.config,
         }
+
+    @staticmethod
+    def _write_csv_columns(path: Path, columns: tuple[str, ...], rows: list[dict]) -> None:
+        """Write CSV with a fixed header, even when there are no rows.
+
+        ``None`` becomes an empty cell; whole-number floats are written without
+        a trailing ``.0`` so millisecond columns stay readable.
+        """
+
+        def cell(value: Any) -> Any:
+            if value is None:
+                return ""
+            if isinstance(value, float) and value.is_integer():
+                return int(value)
+            return value
+
+        with path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(columns))
+            writer.writeheader()
+            for row in rows:
+                writer.writerow({key: cell(row[key]) for key in columns})
 
     @staticmethod
     def _write_csv(path: Path, rows: list[dict], flatten_units: bool = False) -> None:

@@ -183,5 +183,114 @@ class RANSimulatorTests(unittest.TestCase):
             )
 
 
+class E2EExportTests(unittest.TestCase):
+    """Per-packet URLLC and per-slot eMBB exports used by TV4/TV5."""
+
+    def _run_full(self) -> tuple[RANSimulator, Path, tempfile.TemporaryDirectory]:
+        simulator = RANSimulator.from_yaml(CONFIG_PATH)
+        simulator.reset(42)
+        while not simulator.done:
+            simulator.apply_action(action_for(simulator))
+        tmp = tempfile.TemporaryDirectory()
+        simulator.export_results(tmp.name)
+        return simulator, Path(tmp.name), tmp
+
+    @staticmethod
+    def _read_csv(path: Path) -> list[dict]:
+        import csv
+
+        with path.open(encoding="utf-8", newline="") as handle:
+            return list(csv.DictReader(handle))
+
+    def test_embb_slots_match_served_bits(self):
+        simulator, directory, tmp = self._run_full()
+        with tmp:
+            rows = self._read_csv(directory / "ran_embb_slots.csv")
+            summary = json.loads((directory / "run_summary.json").read_text())
+            manifest = json.loads((directory / "run_manifest.json").read_text())
+            self.assertEqual(len(rows), simulator.total_slots)
+            self.assertEqual(
+                sum(int(r["served_embb_bits"]) for r in rows),
+                summary["traffic_and_service"]["served_embb_bits"],
+            )
+            for row, kpi in zip(rows, simulator.metrics_log):
+                self.assertEqual(int(row["served_embb_bits"]), kpi["served_embb_bits"])
+                self.assertEqual(row["request_id"], kpi["request_id"])
+                self.assertEqual(row["run_id"], manifest["run_id"])
+                slot = int(row["time_slot"])
+                self.assertEqual(float(row["emit_time_ms"]), float(slot + 1))
+                self.assertEqual(
+                    int(row["queue_before_bits"]) - int(row["served_embb_bits"]),
+                    int(row["queue_after_bits"]),
+                )
+
+    def test_urllc_packets_match_run_summary(self):
+        _, directory, tmp = self._run_full()
+        with tmp:
+            rows = self._read_csv(directory / "ran_urllc_packets.csv")
+            counters = json.loads((directory / "run_summary.json").read_text())[
+                "urllc_packet_counters"
+            ]
+            statuses = [r["final_status"] for r in rows]
+            self.assertEqual(len(rows), counters["arrived"])
+            self.assertEqual(statuses.count("completed"), counters["completed"])
+            self.assertEqual(statuses.count("dropped"), counters["dropped"])
+            self.assertEqual(statuses.count("unresolved"), counters["unresolved_at_end"])
+            self.assertEqual(len({r["packet_id"] for r in rows}), len(rows))
+            for row in rows:
+                if row["final_status"] == "completed":
+                    self.assertEqual(
+                        float(row["emit_time_ms"]),
+                        float(row["completion_slot"]) + 1,
+                    )
+                    self.assertEqual(
+                        float(row["emit_time_ms"]) - float(row["arrival_time_ms"]),
+                        float(row["delay_ms"]),
+                    )
+                    self.assertEqual(row["served_bits"], row["size_bits"])
+                    self.assertEqual(row["drop_slot"], "")
+                elif row["final_status"] == "dropped":
+                    self.assertEqual(row["emit_time_ms"], "")
+                    self.assertEqual(row["completion_slot"], "")
+                    # Dropped when age reaches deadline at the end of drop_slot.
+                    self.assertEqual(
+                        float(row["drop_slot"]) + 1, float(row["deadline_time_ms"])
+                    )
+                else:
+                    self.assertEqual(row["resolved_slot"], "")
+
+    def test_partial_service_then_completion_records_completion_slot(self):
+        simulator = RANSimulator.from_yaml(CONFIG_PATH)
+        simulator.reset(42)
+        simulator.urllc_queue.reset()
+        simulator.urllc_packet_log.clear()
+        packet = Packet.create("u-manual", 0, 10_000, 5.0)
+        simulator.urllc_queue.enqueue([packet])
+        simulator.urllc_packet_log["u-manual"] = {
+            "packet_id": "u-manual",
+            "arrival_slot": 0,
+            "size_bits": 10_000,
+            "deadline_ms": 5.0,
+            "final_status": "unresolved",
+            "completion_slot": None,
+            "drop_slot": None,
+            "resolved_request_id": None,
+            "resolved_algorithm": None,
+            "remaining_bits": 10_000,
+            "delay_ms": None,
+        }
+        simulator.apply_action(action_for(simulator, embb=49, urllc=1))
+        self.assertEqual(simulator.urllc_packet_log["u-manual"]["final_status"], "unresolved")
+        self.assertLess(simulator.urllc_packet_log["u-manual"]["remaining_bits"], 10_000)
+        while simulator.urllc_packet_log["u-manual"]["final_status"] == "unresolved":
+            simulator.apply_action(action_for(simulator, embb=0, urllc=50))
+        record = simulator.urllc_packet_log["u-manual"]
+        self.assertEqual(record["final_status"], "completed")
+        rows = simulator.build_urllc_packet_rows("test")
+        row = next(r for r in rows if r["packet_id"] == "u-manual")
+        self.assertEqual(row["emit_time_ms"], (record["completion_slot"] + 1) * 1.0)
+        self.assertEqual(row["emit_time_ms"] - row["arrival_time_ms"], row["delay_ms"])
+
+
 if __name__ == "__main__":
     unittest.main()

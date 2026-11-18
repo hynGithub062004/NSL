@@ -22,6 +22,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--embb-rb", type=int, default=25)
     parser.add_argument("--urllc-rb", type=int, default=25)
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument(
+        "--scheduler",
+        default="tv1_smoke_fixed",
+        help="Scheduler label written into each fixed Action (e.g. static)",
+    )
     return parser.parse_args()
 
 
@@ -35,7 +40,7 @@ def main() -> int:
             "schema_version": SCHEMA_VERSION,
             "request_id": f"smoke-{slot:06d}",
             "time_slot": slot,
-            "scheduler": "tv1_smoke_fixed",
+            "scheduler": args.scheduler,
             "action_id": 0,
             "rb_allocation": {"embb": args.embb_rb, "urllc": args.urllc_rb},
         }
@@ -47,6 +52,7 @@ def main() -> int:
         "scenario_id": simulator.scenario_id,
         "seed": simulator.seed,
         "slots": len(simulator.metrics_log),
+        "run_id": simulator.build_run_manifest()["run_id"],
         "output": str(Path(args.output).resolve()),
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))

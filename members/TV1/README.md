@@ -130,6 +130,10 @@ ratios blindly.
   completion rate and completed-delay mean/p50/p95/max.
 - `run_manifest.json`: exact configuration, Python version, model assumptions,
   `config_sha256` and deterministic `run_id`.
+- `ran_urllc_packets.csv`: one row per URLLC packet (arrival, size, completion or
+  drop slot, final status, `emit_time_ms`) for End-to-End replay by TV4.
+- `ran_embb_slots.csv`: eMBB bits actually served per slot with `emit_time_ms`.
+  See `HANDOFF_E2E_TV1.md` for columns and the timing convention.
 
 CSV files use UTF-8, comma delimiters and one header row. JSON and JSONL files
 use UTF-8 and JSON numbers, never `NaN` or `Infinity`.
