@@ -64,7 +64,7 @@ def parse_arguments() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(
         description=(
-            "Chay Static, Queue-Based hoac QoS "
+            "Chay Static, Random, Queue-Based hoac QoS "
             "Heuristic Scheduler cua TV2 voi "
             "RAN Simulator cua TV1."
         )
@@ -76,7 +76,7 @@ def parse_arguments() -> argparse.Namespace:
         choices=sorted(SCHEDULERS),
         help=(
             "Ten scheduler can chay. "
-            "Cac gia tri hien co: static, "
+            "Cac gia tri hien co: static, random, "
             "queue_based, qos_heuristic."
         ),
     )
