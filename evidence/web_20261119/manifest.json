@@ -1,0 +1,74 @@
+[
+  {
+    "file": "RAN/NSL_d803bcd43b2647ab.zip",
+    "scenario": "Stable Load",
+    "run_id": "d803bcd43b2647ab",
+    "runs": 12,
+    "slots": 6000,
+    "bytes": 304546,
+    "sha256": "e1460aecf6d7b9c8337d0872e9afd80538e0554c012a8d1c756210208be3ac08"
+  },
+  {
+    "file": "RAN/NSL_2d377a26233a4d38.zip",
+    "scenario": "URLLC Burst",
+    "run_id": "2d377a26233a4d38",
+    "runs": 12,
+    "slots": 6000,
+    "bytes": 323795,
+    "sha256": "5df9222a726078f4d2c0ee27c5ae2e5df680193dc5ca89205b79ce665a45059b"
+  },
+  {
+    "file": "RAN/NSL_4f5f9ec53c6f4000.zip",
+    "scenario": "Poor Channel",
+    "run_id": "4f5f9ec53c6f4000",
+    "runs": 12,
+    "slots": 6000,
+    "bytes": 301264,
+    "sha256": "ae8d31b4a56019cfde74dd8aa357f2d6dfb640f1cc85445fe2ffeef9d28ab845"
+  },
+  {
+    "file": "Core/NSL_e511b718aaed470d.zip",
+    "scenario": "Normal",
+    "run_id": "e511b718aaed470d",
+    "runs": 1,
+    "slots": 10,
+    "bytes": 7881,
+    "sha256": "2552e2b24f82445cd40bbd9b9627fbbfeddd20849ceb88d8783d4c48954a5a8a"
+  },
+  {
+    "file": "Core/NSL_b703fa6c37b34cab.zip",
+    "scenario": "Delay",
+    "run_id": "b703fa6c37b34cab",
+    "runs": 1,
+    "slots": 10,
+    "bytes": 8476,
+    "sha256": "9239ee4357d571a453d44c05282395928a964afe8d845c2f34a3e3e829773f8d"
+  },
+  {
+    "file": "Core/NSL_ca14be42e89740b5.zip",
+    "scenario": "Loss",
+    "run_id": "ca14be42e89740b5",
+    "runs": 1,
+    "slots": 10,
+    "bytes": 8432,
+    "sha256": "c11d7025fb7752e729f5b61a6835f2868c6fae326ff92d2dd70aabcbdb5c9db2"
+  },
+  {
+    "file": "Core/NSL_0348b7daa71c4df4.zip",
+    "scenario": "Outage",
+    "run_id": "0348b7daa71c4df4",
+    "runs": 1,
+    "slots": 10,
+    "bytes": 8422,
+    "sha256": "37397f2c2098d8637e0f01143cd79c38d12f199fa2c40b8fcc167e08ade8cfbd"
+  },
+  {
+    "file": "Core/NSL_d8abd7f007234672.zip",
+    "scenario": "Recovery",
+    "run_id": "d8abd7f007234672",
+    "runs": 1,
+    "slots": 10,
+    "bytes": 8340,
+    "sha256": "d190bbd7b331c4b7a5d257f34d3f3e8bb7e5852214bdb08ade034fb6f1cc04ac"
+  }
+]
