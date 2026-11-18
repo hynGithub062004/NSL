@@ -50,7 +50,7 @@ class Orchestrator:
             if algorithm == 'dqn' and not inject_dqn_failure:
                 try:
                     from members.TV3.dqn_scheduler import DQNScheduler
-                    agent = DQNScheduler(ROOT / 'members/TV3/models/dqn_v2_best.zip', total_rb=total)
+                    agent = DQNScheduler(ROOT / 'members/TV3/models/dqn_v3_best.zip', total_rb=total)
                 except (ImportError, OSError, RuntimeError, ValueError) as exc:
                     init_error = f'{type(exc).__name__}: {exc}'
                     if not fallback:

@@ -117,7 +117,7 @@ def execute(job: dict, release_lock: bool = True):
         if "dqn" in spec["algorithms"]:
             # Fail before changing the GNS3 lab if the local model cannot load.
             from members.TV3.dqn_scheduler import DQNScheduler
-            DQNScheduler(ROOT / "members/TV3/models/dqn_v2_best.zip", total_rb=spec["total_rb"])
+            DQNScheduler(ROOT / "members/TV3/models/dqn_v3_best.zip", total_rb=spec["total_rb"])
         if spec["core_mode"] == "live":
             # Lab agent extends the existing TV4 controller on the GNS3 VM.
             job["core_health"] = core_request("GET", "/v1/lab/health")
@@ -241,7 +241,7 @@ def readiness():
         'TV1 config urllc_burst': ROOT / 'members/TV1/configs/urllc_burst.yaml',
         'TV1 config poor_channel': ROOT / 'members/TV1/configs/poor_channel.yaml',
         'TV2 QoS scheduler': ROOT / 'members/TV2/src/schedulers/qos_heuristic.py',
-        'TV3 DQN checkpoint': ROOT / 'members/TV3/models/dqn_v2_best.zip',
+        'TV3 DQN checkpoint': ROOT / 'members/TV3/models/dqn_v3_best.zip',
         'TV4 VM agent': ROOT / 'members/TV4/controller/tv4_web_agent.py',
         'TV5 web orchestrator': ROOT / 'members/TV5/orchestrator_web.py',
     }

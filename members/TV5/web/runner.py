@@ -60,7 +60,7 @@ def run_one(spec: dict, seed: int, algorithm: str, folder: Path, batch_id: str) 
     scheduler_config["static"].update(rb_embb=total // 2, rb_urllc=total - total // 2)
     if algorithm == "dqn":
         from members.TV3.dqn_scheduler import DQNScheduler
-        scheduler = DQNScheduler(ROOT / "members/TV3/models/dqn_v2_best.zip", total_rb=total)
+        scheduler = DQNScheduler(ROOT / "members/TV3/models/dqn_v3_best.zip", total_rb=total)
     else:
         scheduler = SCHEDULERS[algorithm]()
     folder.mkdir(parents=True, exist_ok=True)
