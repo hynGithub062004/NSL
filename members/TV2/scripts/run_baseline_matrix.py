@@ -39,7 +39,9 @@ SCENARIOS = (
 
 DEFAULT_SCHEDULERS = (
     "static",
+    "random",
     "queue_based",
+    "qos_heuristic",
 )
 
 DEFAULT_SEEDS = (
@@ -79,8 +81,8 @@ def parse_args() -> argparse.Namespace:
         choices=sorted(SCHEDULER_REGISTRY),
         help=(
             "Danh sách scheduler cần chạy. "
-            "Mặc định: static queue_based. "
-            "QoS-only: --schedulers qos_heuristic."
+            "Mặc định: static random queue_based qos_heuristic. "
+            "Có thể chọn một hoặc nhiều scheduler."
         ),
     )
 
@@ -306,6 +308,7 @@ def validate_exported_run(
         "static": 0,
         "queue_based": 1,
         "qos_heuristic": 2,
+        "random": 3,
     }
 
     expected_action_id = (
