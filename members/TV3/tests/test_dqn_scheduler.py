@@ -10,6 +10,7 @@ python -m pytest members/TV3/tests/test_dqn_scheduler.py -v
 """
 
 import copy
+from pathlib import Path
 
 import pytest
 
@@ -67,6 +68,21 @@ def test_action_contract(scheduler, valid_state):
     assert allocation["urllc"] >= 0
 
     assert allocation["embb"] + allocation["urllc"] == 50
+
+
+def test_explicit_v3_checkpoint_predicts_valid_action(valid_state):
+    checkpoint = Path(__file__).resolve().parents[1] / "models" / "dqn_v3_best.zip"
+    scheduler = DQNScheduler(model_path=checkpoint, total_rb=50)
+
+    action = scheduler.predict(valid_state, request_id="req-v3-smoke")
+
+    assert scheduler.model_path == checkpoint
+    assert action["schema_version"] == "1.0.0"
+    assert action["request_id"] == "req-v3-smoke"
+    assert action["time_slot"] == valid_state["time_slot"]
+    assert action["scheduler"] == "dqn"
+    assert 0 <= action["action_id"] < 5
+    assert sum(action["rb_allocation"].values()) == 50
 
 
 # ==================================================

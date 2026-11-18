@@ -22,9 +22,9 @@ Các file chính:
 - `train_dqn.py`: Huấn luyện DQN và xuất Reward/Loss.
 - `evaluate_dqn.py`: Đánh giá DQN theo các scenario và seed chung.
 - `dqn_scheduler.py`: Adapter phục vụ tích hợp với TV5.
-- `models/dqn_v2_best.zip`: Checkpoint sử dụng để suy luận.
-- `results/dqn_runs.csv`: Kết quả của từng lần đánh giá.
-- `results/dqn_aggregate.csv`: Kết quả tổng hợp qua ba seed.
+- [`models/dqn_v3_best.zip`](../models/dqn_v3_best.zip) là checkpoint dùng cho benchmark hiện hành và được bàn giao để TV5 chạy tích hợp.
+- [`results/benchmark_v3/dqn_runs.csv`](../results/benchmark_v3/dqn_runs.csv) và [`dqn_aggregate.csv`](../results/benchmark_v3/dqn_aggregate.csv) lưu kết quả từng lượt và kết quả tổng hợp qua ba seed.
+- [`results/rb_analysis_v3/`](../results/rb_analysis_v3/) lưu kết quả so sánh bốn scheduler.
 - `tests/test_dqn_scheduler.py`: Unit Test.
 - `tests/test_dqn_integration.py`: Integration Test với TV1.
 
@@ -32,17 +32,18 @@ Các file chính:
 
 ### 3.1. Khởi tạo
 
+Chạy ví dụ dưới đây từ thư mục gốc NSL. Khi tích hợp, truyền đường dẫn checkpoint v3 lấy theo thư mục gốc mà ứng dụng đang sử dụng.
+
 ```python
+from pathlib import Path
+
 from members.TV3.dqn_scheduler import DQNScheduler
 
-scheduler = DQNScheduler()
+checkpoint = Path("members/TV3/models/dqn_v3_best.zip").resolve()
+scheduler = DQNScheduler(model_path=checkpoint, total_rb=50)
 ```
 
-Mặc định, Scheduler sử dụng checkpoint tại:
-
-`members/TV3/models/dqn_v2_best.zip`
-
-Checkpoint được nạp một lần khi khởi tạo đối tượng.
+Checkpoint được nạp một lần khi khởi tạo. Cách gọi `DQNScheduler()` vẫn nạp `models/dqn_v2_best.zip` cho các luồng đang dùng mặc định. Muốn chạy v3, phía gọi cần truyền rõ `model_path` như trên.
 
 ### 3.2. Hàm suy luận
 
@@ -84,7 +85,7 @@ CQI nằm trong khoảng 1–15. Các trường queue không âm và deadline ph
 
 ## 5. Observation của DQN
 
-DQN v2 sử dụng Observation 5 chiều:
+DQN v3 sử dụng Observation 5 chiều:
 
 1. eMBB backlog chuẩn hóa.
 2. eMBB CQI chuẩn hóa.
@@ -116,7 +117,7 @@ Action được tạo thông qua hàm `make_action()` của TV3.
 
 ## 7. Action Contract
 
-Ví dụ một kết quả suy luận thực tế từ smoke test:
+Ví dụ cấu trúc Action theo Contract 1.0.0:
 
 ```json
 {
@@ -181,9 +182,7 @@ Lệnh:
 python -m pytest members/TV3/tests/test_dqn_scheduler.py -v
 ```
 
-Kết quả ghi nhận:
-
-**26 passed in 5.25s**
+Trong bộ kiểm thử adapter, `test_explicit_v3_checkpoint_predicts_valid_action` nạp checkpoint v3 từ repository và gọi adapter trên một State mẫu. Ca kiểm thử kiểm tra Contract, mã yêu cầu, slot, miền Action và tổng phân bổ 50 RB.
 
 ### Integration Test TV1–TV3
 
@@ -197,7 +196,7 @@ Kết quả ghi nhận:
 
 **9 passed in 5.51s**
 
-Integration Test sử dụng ba scenario, ba seed và 500 slot cho mỗi lần chạy.
+Integration Test sử dụng checkpoint mặc định của adapter (v2), ba scenario, ba seed và 500 slot cho mỗi lần chạy.
 
 Tổng số slot kiểm thử tích hợp: 4.500.
 
@@ -220,9 +219,22 @@ Các kiểm thử xác nhận Action hợp lệ, không thay đổi State đầu
 - Validator Action chính thức của Orchestrator.
 - Cơ chế fallback từ DQN sang QoS Heuristic hoặc Static.
 - Định dạng log khi Scheduler lỗi.
-- Quản lý checkpoint và phiên bản mô hình khi triển khai.
+- Chuyển các chỗ chọn checkpoint trong Web Runner và Orchestrator sang v3, gồm bước kiểm tra nạp model trước phiên chạy và bộ lập lịch thực thi từng slot.
+- Chạy một phiên DQN trên TV5 và lưu tên hoặc SHA-256 của checkpoint thực tế cùng mã phiên. Đối chiếu scheduler đã thực thi với log fallback trước khi ghi nhận kết quả cho v3.
 
-## 13. Giới hạn hiện tại
+## 13. Tái lập mã huấn luyện DQN v3
+
+[Manifest huấn luyện](../results/training_v3/training_manifest.json) ghi `git_commit = cdb5756336df783966f987272e814ab2f037474a`, là HEAD tại thời điểm chạy. Hai tệp mã dùng trong lần huấn luyện khớp SHA-256 của phiên bản được đưa lên GitHub tại commit [`b41982a178fc451feddf6502af0455e6f45ce913`](https://github.com/hynGithub062004/NSL/commit/b41982a178fc451feddf6502af0455e6f45ce913). Dùng commit này khi cần đối chiếu mã huấn luyện với manifest.
+
+| Tệp | SHA-256 |
+|---|---|
+| `train_dqn.py` | `cccff3435eafdb2ad287b0282a748aaac0c9992ba5c392631d2a6eab7b009a95` |
+| `network_slicing_env.py` | `883d6413c6f1702bbfa47a92db2531ae001d7edfb8c4533cc8e1c4ae6eb37d74` |
+| `models/dqn_v3_best.zip` | `78b2dbd5f6cb525b69a44c4dad84c0a4fdb91b275c4ec510e3d5d5fa391b7d79` |
+
+Để tái lập phép so sánh bốn scheduler, dùng commit [`86d958e`](https://github.com/hynGithub062004/NSL/commit/86d958e92da7be402bb71ab11b346f8b90f6c646) hoặc bản `main` có chứa commit đó. Xem [README TV3](../README.md) để chạy benchmark vào một thư mục đầu ra mới.
+
+## 14. Giới hạn hiện tại
 
 TV3 đã hoàn thành kiểm thử độc lập và tích hợp với TV1.
 
