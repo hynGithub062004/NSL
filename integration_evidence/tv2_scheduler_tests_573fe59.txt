@@ -27,6 +27,13 @@ test_delay_two_ms_has_expected_urgency (test_qos_heuristic.QoSUrgencyTests.test_
 test_delay_zero_uses_current_slot_opportunity (test_qos_heuristic.QoSUrgencyTests.test_delay_zero_uses_current_slot_opportunity) ... ok
 test_empty_urllc_queue_has_zero_urgency (test_qos_heuristic.QoSUrgencyTests.test_empty_urllc_queue_has_zero_urgency) ... ok
 test_urgency_is_clipped_to_one (test_qos_heuristic.QoSUrgencyTests.test_urgency_is_clipped_to_one) ... ok
+test_all_slots_preserve_total_rb (test_random_scheduler.RandomSchedulerTests.test_all_slots_preserve_total_rb) ... ok
+test_invalid_total_rb_is_rejected (test_random_scheduler.RandomSchedulerTests.test_invalid_total_rb_is_rejected) ... ok
+test_negative_seed_is_rejected (test_random_scheduler.RandomSchedulerTests.test_negative_seed_is_rejected) ... ok
+test_negative_time_slot_is_rejected (test_random_scheduler.RandomSchedulerTests.test_negative_time_slot_is_rejected) ... ok
+test_same_seed_and_slot_are_reproducible (test_random_scheduler.RandomSchedulerTests.test_same_seed_and_slot_are_reproducible) ... ok
+test_three_seeds_produce_distinct_sequences (test_random_scheduler.RandomSchedulerTests.test_three_seeds_produce_distinct_sequences) ... ok
+test_valid_action_preserves_total_rb (test_random_scheduler.RandomSchedulerTests.test_valid_action_preserves_total_rb) ... ok
 test_action_has_expected_metadata (test_schedulers.QueueBasedSchedulerTests.test_action_has_expected_metadata) ... ok
 test_action_passes_validator (test_schedulers.QueueBasedSchedulerTests.test_action_passes_validator) ... ok
 test_boolean_queue_is_rejected (test_schedulers.QueueBasedSchedulerTests.test_boolean_queue_is_rejected) ... ok
@@ -53,6 +60,6 @@ test_valid_action (test_schedulers.StaticSchedulerTests.test_valid_action) ... o
 test_wrong_time_slot (test_schedulers.StaticSchedulerTests.test_wrong_time_slot) ... ok
 
 ----------------------------------------------------------------------
-Ran 53 tests in 0.083s
+Ran 60 tests in 0.066s
 
 OK
