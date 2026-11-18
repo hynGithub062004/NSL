@@ -7,7 +7,6 @@ from typing import Any
 VALID_SCHEDULERS = {
     "static",
     "queue_based",
-    "random",
     "qos_heuristic",
 }
 

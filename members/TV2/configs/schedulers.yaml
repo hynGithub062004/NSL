@@ -7,9 +7,6 @@ static:
   rb_urllc: 25
   action_id: 0
 
-random:
-  action_id: 3
-
 queue_based:
   min_rb_embb: 5
   min_rb_urllc: 5
