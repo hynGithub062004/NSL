@@ -1,567 +1,499 @@
+"""Train DQN v3 with disjoint episode seeds and fixed-seed validation.
+
+Run from NSL root:
+  python members/TV3/train_dqn.py --timesteps 50000 --seed 100
+
+Never overwrites DQN v2 files.
+"""
 from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
-import shutil
+import statistics
+import subprocess
 import sys
 from pathlib import Path
 
-import numpy as np
 import matplotlib.pyplot as plt
-
+import numpy as np
 from stable_baselines3 import DQN
-from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.monitor import Monitor
 
-
-# ===================================================
-# 1. DUONG DAN CHUNG
-# ===================================================
-
+ROOT = Path(__file__).resolve().parents[2]
 TV3_DIR = Path(__file__).resolve().parent
-ROOT = TV3_DIR.parents[1]
-
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from members.TV3.network_slicing_env import NetworkSlicingEnv
 
-CONFIG_PATH = "members/TV1/configs/urllc_burst.yaml"
+CONFIG = "members/TV1/configs/urllc_burst.yaml"
+TRAIN_SEED_BASE = 100000
+VALIDATION_SEEDS = (200101, 200102, 200103)
+BENCHMARK_SEEDS = (42, 43, 44)
+EVAL_FREQ = 2500
 
+RESULT_DIR = TV3_DIR / "results" / "training_v3"
+FIGURE_DIR = TV3_DIR / "figures" / "training_v3"
 MODEL_DIR = TV3_DIR / "models"
-RESULT_DIR = TV3_DIR / "results" / "training_v2"
-FIGURE_DIR = TV3_DIR / "figures"
 
-TEMP_MODEL_DIR = RESULT_DIR / "checkpoint_temp"
-
-for folder in (
-    MODEL_DIR,
-    RESULT_DIR,
-    FIGURE_DIR,
-    TEMP_MODEL_DIR,
-):
-    folder.mkdir(parents=True, exist_ok=True)
+BEST_MODEL = MODEL_DIR / "dqn_v3_best.zip"
+LAST_MODEL = MODEL_DIR / "dqn_v3_last.zip"
 
 
-# ===================================================
-# 2. HAM GHI CSV
-# ===================================================
-
-def save_csv(path, columns, rows):
-    with path.open(
-        "w",
-        encoding="utf-8-sig",
-        newline=""
-    ) as file:
-
-        writer = csv.writer(file)
-        writer.writerow(columns)
+def write_csv(path: Path, headers: list[str], rows: list[list]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
         writer.writerows(rows)
 
-    print(f"Created: {path}")
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
-# ===================================================
-# 3. DQN CO GHI TRAINING LOSS
-# ===================================================
+def git_head() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
 
 class LoggedDQN(DQN):
-    """
-    Ghi loss sau moi lan DQN thuc hien gradient update.
-    Khong thay doi thuat toan DQN cua SB3.
-    """
+    """Record actual training loss without changing DQN."""
 
     def __init__(self, *args, **kwargs):
-        self.loss_history = []
+        self.loss_history: list[list] = []
         super().__init__(*args, **kwargs)
 
-    def train(self, gradient_steps, batch_size=100):
-
-        super().train(
-            gradient_steps=gradient_steps,
-            batch_size=batch_size
-        )
-
-        loss = self.logger.name_to_value.get(
-            "train/loss"
-        )
+    def train(self, gradient_steps: int, batch_size: int = 100) -> None:
+        super().train(gradient_steps, batch_size)
+        loss = self.logger.name_to_value.get("train/loss")
 
         if loss is not None and np.isfinite(loss):
-
             self.loss_history.append([
                 int(self.num_timesteps),
                 int(self._n_updates),
-                float(loss)
+                float(loss),
             ])
 
 
-# ===================================================
-# 4. MOI TRUONG EVALUATION RIENG
-# ===================================================
+class FixedSeedValidation(BaseCallback):
+    """Evaluate each checkpoint on three fixed, held-out seeds."""
 
-class HeldoutEvalEnv(NetworkSlicingEnv):
-    """
-    Su dung evaluation seed 101.
-    Khong dung benchmark seeds 42, 43, 44.
-    """
+    def __init__(self, config_path: str, eval_freq: int = EVAL_FREQ):
+        super().__init__(verbose=0)
+        self.env = NetworkSlicingEnv(config_path)
+        self.eval_freq = eval_freq
+        self.history: list[dict] = []
+        self.best_score = float("-inf")
+        self.best_step: int | None = None
 
-    def reset(self, *, seed=None, options=None):
+    def _on_step(self) -> bool:
+        if self.n_calls % self.eval_freq != 0:
+            return True
 
-        if seed is None:
-            seed = 101
+        rewards: list[float] = []
 
-        return super().reset(
-            seed=seed,
-            options=options
+        for val_seed in VALIDATION_SEEDS:
+            obs, info = self.env.reset(seed=val_seed)
+
+            if info["effective_seed"] != val_seed:
+                raise RuntimeError("Validation seed mismatch")
+
+            done = False
+            total_reward = 0.0
+            steps = 0
+
+            while not done:
+                action, _ = self.model.predict(
+                    obs,
+                    deterministic=True,
+                )
+
+                obs, reward, terminated, truncated, _ = self.env.step(
+                    int(action)
+                )
+
+                total_reward += float(reward)
+                steps += 1
+                done = bool(terminated or truncated)
+
+            if steps != 500:
+                raise RuntimeError(
+                    f"Validation length = {steps}, expected 500"
+                )
+
+            rewards.append(total_reward)
+
+        score = statistics.fmean(rewards)
+        sd = statistics.stdev(rewards)
+
+        self.history.append({
+            "timesteps": int(self.num_timesteps),
+            "seeds": list(VALIDATION_SEEDS),
+            "rewards": rewards,
+            "mean_reward": score,
+            "std_reward": sd,
+        })
+
+        self.logger.record("eval/mean_reward", score)
+
+        print(
+            f"Validation step {self.num_timesteps}: "
+            f"mean={score:.4f}, std={sd:.4f}"
         )
 
+        if score > self.best_score:
+            self.best_score = score
+            self.best_step = int(self.num_timesteps)
 
-# ===================================================
-# 5. DOC TRAINING REWARD TU MONITOR
-# ===================================================
+            self.model.save(str(BEST_MODEL))
 
-def read_training_reward():
+            print(
+                f"New best checkpoint: step {self.best_step}"
+            )
 
-    monitor_file = RESULT_DIR / "train.monitor.csv"
+        return True
 
-    if not monitor_file.exists():
-        raise FileNotFoundError(monitor_file)
-
-    rows = []
-    total_steps = 0
-
-    with monitor_file.open(
-        "r",
-        encoding="utf-8"
-    ) as file:
-
-        # Dong dau tien cua Monitor la metadata JSON.
-        next(file)
-
-        reader = csv.DictReader(file)
-
-        for episode, row in enumerate(reader, start=1):
-
-            episode_reward = float(row["r"])
-            episode_length = int(row["l"])
-
-            total_steps += episode_length
-
-            rows.append([
-                episode,
-                total_steps,
-                episode_reward,
-                episode_length
-            ])
-
-    return rows
+    def close(self) -> None:
+        self.env.close()
 
 
-# ===================================================
-# 6. VE TRAINING REWARD
-# ===================================================
-
-def plot_training_reward(rows):
-
-    if not rows:
-        raise RuntimeError("Khong co training reward")
-
-    steps = np.array(
-        [r[1] for r in rows],
-        dtype=float
-    )
-
-    rewards = np.array(
-        [r[2] for r in rows],
-        dtype=float
-    )
-
-    window = min(10, len(rewards))
-
-    moving_average = np.array([
-        np.mean(
-            rewards[max(0, i - window + 1):i + 1]
-        )
-        for i in range(len(rewards))
-    ])
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    ax.plot(
-        steps,
-        rewards,
-        alpha=0.35,
-        label="Episode Reward"
-    )
-
-    ax.plot(
-        steps,
-        moving_average,
-        linewidth=2,
-        label="Moving Average"
-    )
-
-    ax.set_title("DQN v2 - Training Reward")
-    ax.set_xlabel("Training Timesteps")
-    ax.set_ylabel("Episode Reward")
-
-    ax.grid(True, alpha=0.3)
-    ax.legend()
-
-    fig.tight_layout()
-
-    output = FIGURE_DIR / "training_reward.png"
-    fig.savefig(output, dpi=300)
-    plt.close(fig)
-
-    print(f"Created: {output}")
-
-
-# ===================================================
-# 7. VE TRAINING LOSS
-# ===================================================
-
-def plot_training_loss(rows):
-
-    if not rows:
-        raise RuntimeError(
-            "Khong ghi duoc Training Loss"
-        )
-
-    steps = np.array(
-        [r[0] for r in rows],
-        dtype=float
-    )
-
-    losses = np.array(
-        [r[2] for r in rows],
-        dtype=float
-    )
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    ax.plot(
-        steps,
-        losses,
-        linewidth=1.2,
-        label="DQN Training Loss"
-    )
-
-    ax.set_title("DQN v2 - Training Loss")
-    ax.set_xlabel("Training Timesteps")
-    ax.set_ylabel("Loss")
-
-    ax.grid(True, alpha=0.3)
-    ax.legend()
-
-    fig.tight_layout()
-
-    output = FIGURE_DIR / "training_loss.png"
-    fig.savefig(output, dpi=300)
-    plt.close(fig)
-
-    print(f"Created: {output}")
-
-
-# ===================================================
-# 8. XUAT EVALUATION REWARD
-# ===================================================
-
-def export_evaluation_reward():
-
-    path = RESULT_DIR / "evaluations.npz"
-
-    if not path.exists():
+def monitor_episodes(path: Path) -> list[list]:
+    if not path.is_file():
         raise FileNotFoundError(path)
 
-    with np.load(
-        path,
-        allow_pickle=False
-    ) as data:
+    out: list[list] = []
+    step = 0
 
-        timesteps = np.asarray(data["timesteps"])
-        rewards = np.asarray(data["results"])
+    with path.open("r", encoding="utf-8") as f:
+        next(f)
 
-    if rewards.ndim != 2:
-        raise ValueError("Invalid evaluation rewards")
+        for index, row in enumerate(csv.DictReader(f), 1):
+            length = int(row["l"])
+            step += length
 
-    if rewards.shape[0] != len(timesteps):
-        raise ValueError("Timesteps mismatch")
+            out.append([
+                index,
+                step,
+                float(row["r"]),
+                length,
+            ])
 
-    mean = np.mean(rewards, axis=1)
+    return out
 
-    std = np.std(
-        rewards,
-        axis=1,
-        ddof=1 if rewards.shape[1] > 1 else 0
+
+def plot_series(
+    x,
+    y,
+    filename: str,
+    title: str,
+    xlabel: str,
+    ylabel: str,
+) -> None:
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    ax.plot(x, y)
+    ax.set(
+        title=title,
+        xlabel=xlabel,
+        ylabel=ylabel,
     )
-
-    rows = []
-
-    for i, step in enumerate(timesteps):
-
-        rows.append([
-            int(step),
-            int(rewards.shape[1]),
-            round(float(mean[i]), 6),
-            round(float(std[i]), 6),
-            round(float(np.min(rewards[i])), 6),
-            round(float(np.max(rewards[i])), 6)
-        ])
-
-    save_csv(
-        RESULT_DIR / "evaluation_reward.csv",
-        [
-            "timesteps",
-            "evaluation_episodes",
-            "mean_reward",
-            "std_reward",
-            "min_reward",
-            "max_reward"
-        ],
-        rows
-    )
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    ax.plot(
-        timesteps,
-        mean,
-        marker="o",
-        label="Mean Evaluation Reward"
-    )
-
-    ax.fill_between(
-        timesteps,
-        mean - std,
-        mean + std,
-        alpha=0.2,
-        label="Mean +/- 1 Std"
-    )
-
-    ax.set_title("DQN v2 - Evaluation Reward")
-    ax.set_xlabel("Training Timesteps")
-    ax.set_ylabel("Evaluation Episode Reward")
-
     ax.grid(True, alpha=0.3)
-    ax.legend()
 
     fig.tight_layout()
-
-    output = FIGURE_DIR / "evaluation_reward.png"
-    fig.savefig(output, dpi=300)
+    fig.savefig(FIGURE_DIR / filename, dpi=250)
     plt.close(fig)
 
-    print(f"Created: {output}")
 
-    return len(timesteps)
-
-
-# ===================================================
-# 9. CHUONG TRINH TRAIN
-# ===================================================
-
-def main():
-
+def main() -> None:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
         "--timesteps",
         type=int,
-        default=50000
+        default=50000,
     )
 
     parser.add_argument(
         "--seed",
         type=int,
-        default=100
+        default=100,
+        help="Algorithm seed, NOT RAN episode seed",
     )
 
     args = parser.parse_args()
 
-    if args.timesteps <= 0:
-        raise ValueError("Timesteps phai > 0")
-
-    print("=" * 60)
-    print("TV3 - DQN V2 TRAINING WITH LOGGING")
-    print("=" * 60)
-
-    print("Config:", CONFIG_PATH)
-    print("Train seed:", args.seed)
-    print("Eval seed: 101")
-    print("Timesteps:", args.timesteps)
-
-    # Kiem tra Gymnasium environment.
-    test_env = NetworkSlicingEnv(CONFIG_PATH)
-    check_env(test_env, warn=True)
-    test_env.close()
-
-    # Monitor ghi reward va length tung episode.
-    train_env = Monitor(
-        NetworkSlicingEnv(CONFIG_PATH),
-        filename=str(RESULT_DIR / "train")
-    )
-
-    train_env.reset(seed=args.seed)
-
-    # Evaluation tach biet train.
-    eval_env = Monitor(
-        HeldoutEvalEnv(CONFIG_PATH)
-    )
-
-    callback = EvalCallback(
-        eval_env,
-        best_model_save_path=str(TEMP_MODEL_DIR),
-        log_path=str(RESULT_DIR),
-        eval_freq=2500,
-        n_eval_episodes=3,
-        deterministic=True,
-        verbose=1
-    )
-
-    # Giu nguyen hyperparameters DQN v2.
-    model = LoggedDQN(
-        "MlpPolicy",
-        train_env,
-        seed=args.seed,
-        verbose=1,
-        learning_rate=1e-3,
-        buffer_size=20000,
-        learning_starts=1000,
-        batch_size=64,
-        gamma=0.99,
-        target_update_interval=200,
-        exploration_fraction=0.3,
-        tensorboard_log=None
-    )
-
-    print("\nStarting DQN training...")
-
-    model.learn(
-        total_timesteps=args.timesteps,
-        callback=callback
-    )
-
-    # Luu model cuoi vao vi tri tam.
-    last_temp = TEMP_MODEL_DIR / "dqn_v2_last.zip"
-    model.save(str(last_temp))
-
-    # Kiem tra checkpoint tot nhat.
-    best_temp = TEMP_MODEL_DIR / "best_model.zip"
-
-    if not best_temp.exists():
-        raise RuntimeError(
-            "Chua tao duoc best_model.zip"
+    if args.timesteps < EVAL_FREQ or args.timesteps % EVAL_FREQ:
+        parser.error(
+            f"--timesteps must be a multiple of {EVAL_FREQ}"
         )
 
-    # Lay training reward.
-    training_rewards = read_training_reward()
+    if len(set(VALIDATION_SEEDS + BENCHMARK_SEEDS)) != 6:
+        raise RuntimeError(
+            "Validation and benchmark seeds overlap"
+        )
 
-    if not training_rewards:
-        raise RuntimeError("Training Reward rong")
+    episode_max = TRAIN_SEED_BASE + (args.timesteps // 500) + 2
 
-    if not model.loss_history:
-        raise RuntimeError("Training Loss rong")
+    if any(
+        TRAIN_SEED_BASE <= s <= episode_max
+        for s in VALIDATION_SEEDS + BENCHMARK_SEEDS
+    ):
+        raise RuntimeError(
+            "Training range overlaps held-out seeds"
+        )
 
-    # Xuat CSV.
-    save_csv(
-        RESULT_DIR / "training_reward.csv",
-        [
-            "episode",
-            "timesteps",
-            "episode_reward",
-            "episode_length"
-        ],
-        training_rewards
+    # Do not overwrite an already completed v3 experiment.
+    for output in (
+        BEST_MODEL,
+        LAST_MODEL,
+        RESULT_DIR / "training_manifest.json",
+    ):
+        if output.exists():
+            raise FileExistsError(
+                f"v3 output exists; archive it before rerun: {output}"
+            )
+
+    # Check compatibility with Gymnasium / Stable-Baselines3.
+    test_env = NetworkSlicingEnv(CONFIG)
+    try:
+        check_env(test_env, warn=True)
+    finally:
+        test_env.close()
+
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    RESULT_DIR.mkdir(parents=True, exist_ok=True)
+    FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+
+    # A new effective seed for each training episode.
+    raw_train = NetworkSlicingEnv(
+        CONFIG,
+        episode_seed_base=TRAIN_SEED_BASE,
     )
 
-    save_csv(
-        RESULT_DIR / "training_loss.csv",
-        [
-            "timesteps",
-            "gradient_updates",
-            "training_loss"
-        ],
-        model.loss_history
+    train_env = Monitor(
+        raw_train,
+        filename=str(RESULT_DIR / "train"),
     )
 
-    # Ve bieu do.
-    plot_training_reward(training_rewards)
-    plot_training_loss(model.loss_history)
+    callback = FixedSeedValidation(CONFIG)
 
-    eval_points = export_evaluation_reward()
+    try:
+        # Keep the original DQN v2 hyperparameters.
+        model = LoggedDQN(
+            "MlpPolicy",
+            train_env,
+            seed=args.seed,
+            verbose=1,
+            learning_rate=1e-3,
+            buffer_size=20000,
+            learning_starts=1000,
+            batch_size=64,
+            gamma=0.99,
+            target_update_interval=200,
+            exploration_fraction=0.3,
+            tensorboard_log=None,
+        )
 
-    # Luu thong tin tai lap thi nghiem.
-    manifest = {
-        "model": "DQN v2",
-        "config": CONFIG_PATH,
-        "train_seed": args.seed,
-        "evaluation_seed": 101,
-        "benchmark_seeds_reserved": [42, 43, 44],
-        "timesteps": args.timesteps,
-        "eval_freq": 2500,
-        "eval_episodes": 3,
-        "learning_rate": 0.001,
-        "buffer_size": 20000,
-        "learning_starts": 1000,
-        "batch_size": 64,
-        "gamma": 0.99,
-        "target_update_interval": 200,
-        "exploration_fraction": 0.3,
-        "reward_version": "DQN v2 provisional"
-    }
+        model.learn(
+            total_timesteps=args.timesteps,
+            callback=callback,
+        )
 
-    (
-        RESULT_DIR / "training_manifest.json"
-    ).write_text(
-        json.dumps(
-            manifest,
-            indent=2,
-            ensure_ascii=False
-        ),
-        encoding="utf-8"
-    )
+        model.save(str(LAST_MODEL))
 
-    # Chi ghi de checkpoint v2 sau khi train,
-    # logging va ve bieu do thanh cong.
-    shutil.copy2(
-        best_temp,
-        MODEL_DIR / "dqn_v2_best.zip"
-    )
+        if not BEST_MODEL.is_file() or callback.best_step is None:
+            raise RuntimeError(
+                "Best checkpoint was not saved"
+            )
 
-    shutil.copy2(
-        last_temp,
-        MODEL_DIR / "dqn_v2_last.zip"
-    )
+        episodes = monitor_episodes(
+            RESULT_DIR / "train.monitor.csv"
+        )
 
-    train_env.close()
-    eval_env.close()
+        completed_seeds = raw_train.actual_episode_seeds[
+            :len(episodes)
+        ]
 
-    print("\n" + "=" * 60)
-    print("DQN V2 TRAINING COMPLETED")
-    print("=" * 60)
+        if len(completed_seeds) != len(episodes):
+            raise RuntimeError(
+                "Missing per-episode training seeds"
+            )
 
-    print(
-        "Training episodes:",
-        len(training_rewards)
-    )
+        if len(set(completed_seeds)) != len(completed_seeds):
+            raise RuntimeError(
+                "Repeated training seed"
+            )
 
-    print(
-        "Loss observations:",
-        len(model.loss_history)
-    )
+        if set(completed_seeds) & set(
+            VALIDATION_SEEDS + BENCHMARK_SEEDS
+        ):
+            raise RuntimeError(
+                "Held-out seed was used to train"
+            )
 
-    print("Evaluation points:", eval_points)
+        if not episodes or not callback.history:
+            raise RuntimeError(
+                "Training or validation log is empty"
+            )
 
-    print("Best model: models/dqn_v2_best.zip")
-    print("Last model: models/dqn_v2_last.zip")
+        write_csv(
+            RESULT_DIR / "training_reward.csv",
+            [
+                "episode",
+                "timesteps",
+                "episode_reward",
+                "episode_length",
+            ],
+            episodes,
+        )
 
-    print("CSV directory:", RESULT_DIR)
-    print("Figure directory:", FIGURE_DIR)
+        write_csv(
+            RESULT_DIR / "training_loss.csv",
+            [
+                "timesteps",
+                "gradient_updates",
+                "training_loss",
+            ],
+            model.loss_history,
+        )
 
-    print("\nSUCCESS: Reward and Loss logs created")
+        write_csv(
+            RESULT_DIR / "train_episode_seeds.csv",
+            [
+                "episode",
+                "effective_seed",
+            ],
+            [
+                [i, seed]
+                for i, seed in enumerate(completed_seeds, 1)
+            ],
+        )
+
+        write_csv(
+            RESULT_DIR / "validation_rewards.csv",
+            [
+                "timesteps",
+                "seed_200101",
+                "seed_200102",
+                "seed_200103",
+                "mean_reward",
+                "std_reward",
+            ],
+            [
+                [
+                    row["timesteps"],
+                    *row["rewards"],
+                    row["mean_reward"],
+                    row["std_reward"],
+                ]
+                for row in callback.history
+            ],
+        )
+
+        plot_series(
+            [r[1] for r in episodes],
+            [r[2] for r in episodes],
+            "training_reward.png",
+            "DQN v3 - Training Reward",
+            "Training timesteps",
+            "Episode reward",
+        )
+
+        if model.loss_history:
+            plot_series(
+                [r[0] for r in model.loss_history],
+                [r[2] for r in model.loss_history],
+                "training_loss.png",
+                "DQN v3 - Training Loss",
+                "Training timesteps",
+                "DQN loss",
+            )
+
+        plot_series(
+            [r["timesteps"] for r in callback.history],
+            [r["mean_reward"] for r in callback.history],
+            "validation_reward.png",
+            "DQN v3 - Fixed-seed Validation",
+            "Training timesteps",
+            "Mean episode reward",
+        )
+
+        manifest = {
+            "model": "DQN v3 (seed-safe)",
+            "scenario_config": CONFIG,
+            "git_commit": git_head(),
+            "algorithm_seed": args.seed,
+            "train_seed_rule":
+                f"{TRAIN_SEED_BASE} + episode_index_zero_based",
+            "train_seeds_completed": completed_seeds,
+            "validation_seeds": list(VALIDATION_SEEDS),
+            "benchmark_seeds_reserved": list(BENCHMARK_SEEDS),
+            "timesteps": args.timesteps,
+            "best_step": callback.best_step,
+            "best_validation_mean_reward": callback.best_score,
+            "best_checkpoint": str(
+                BEST_MODEL.relative_to(ROOT)
+            ),
+            "best_checkpoint_sha256": sha256(BEST_MODEL),
+            "last_checkpoint_sha256": sha256(LAST_MODEL),
+            "network_slicing_env_sha256": sha256(
+                TV3_DIR / "network_slicing_env.py"
+            ),
+            "train_dqn_sha256": sha256(
+                TV3_DIR / "train_dqn.py"
+            ),
+            "validation_history": callback.history,
+            "hyperparameters": {
+                "learning_rate": 0.001,
+                "buffer_size": 20000,
+                "learning_starts": 1000,
+                "batch_size": 64,
+                "gamma": 0.99,
+                "target_update_interval": 200,
+                "exploration_fraction": 0.3,
+                "eval_freq": EVAL_FREQ,
+            },
+        }
+
+        (
+            RESULT_DIR / "training_manifest.json"
+        ).write_text(
+            json.dumps(
+                manifest,
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        print("\nPASS: DQN v3 training and validation complete")
+        print(f"Best checkpoint: {BEST_MODEL}")
+        print(f"Best step: {callback.best_step}")
+        print(
+            f"SHA-256: {manifest['best_checkpoint_sha256']}"
+        )
+
+    finally:
+        callback.close()
+        train_env.close()
 
 
 if __name__ == "__main__":

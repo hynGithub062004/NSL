@@ -1,116 +1,77 @@
 
+"""Plot seven DQN v3 KPI figures from benchmark_v3/dqn_aggregate.csv.
+
+Run from NSL root:
+  python members/TV3/plot_results.py
 """
-TV3 - Ve bieu do KPI cua DQN v2.
+from __future__ import annotations
 
-Nguon du lieu:
-    members/TV3/results/dqn_runs.csv
-    members/TV3/results/dqn_aggregate.csv
-
-Output:
-    members/TV3/figures/
-
-Khong tinh lai KPI cua TV1.
-Khong thay doi du lieu CSV goc.
-"""
-
-from pathlib import Path
+import argparse
 import csv
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 
-
-# ============================================================
-# 1. THU MUC VA DU LIEU CHUNG
-# ============================================================
-
 TV3_DIR = Path(__file__).resolve().parent
 
-RESULTS_DIR = TV3_DIR / "results"
-FIGURES_DIR = TV3_DIR / "figures"
-
-RUNS_CSV = RESULTS_DIR / "dqn_runs.csv"
-AGGREGATE_CSV = RESULTS_DIR / "dqn_aggregate.csv"
-
-SCENARIOS = [
+SCENARIOS = (
     "stable_load",
     "urllc_burst",
     "poor_channel",
-]
+)
 
-LABELS = [
+LABELS = (
     "Stable Load",
     "URLLC Burst",
     "Poor Channel",
-]
-
-FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+)
 
 
-# ============================================================
-# 2. DOC CSV
-# ============================================================
-
-def read_csv(path):
+def read_aggregate(path: Path) -> dict:
     if not path.is_file():
-        raise FileNotFoundError(
-            f"Khong tim thay file CSV: {path}"
-        )
+        raise FileNotFoundError(path)
 
     with path.open(
         "r",
         encoding="utf-8-sig",
-        newline=""
-    ) as file:
-        rows = list(csv.DictReader(file))
+        newline="",
+    ) as f:
+        rows = list(csv.DictReader(f))
 
-    if not rows:
-        raise ValueError(f"CSV khong co du lieu: {path}")
+    data = {
+        r["scenario_id"]: r
+        for r in rows
+        if r["scheduler"] == "dqn"
+    }
 
-    return rows
-
-
-runs = read_csv(RUNS_CSV)
-aggregates = read_csv(AGGREGATE_CSV)
-
-aggregate_map = {
-    row["scenario_id"]: row
-    for row in aggregates
-    if row["scheduler"] == "dqn"
-}
-
-for scenario in SCENARIOS:
-    if scenario not in aggregate_map:
-        raise ValueError(
-            f"Thieu scenario trong CSV: {scenario}"
+    if set(SCENARIOS) - set(data):
+        raise RuntimeError(
+            "DQN v3 aggregate is missing a scenario"
         )
 
+    return data
 
-# ============================================================
-# 3. HAM VE BIEU DO
-# ============================================================
 
 def plot_metric(
-    metric,
-    title,
-    ylabel,
-    filename,
-    percentage=False
-):
-    means = []
-    stds = []
+    data: dict,
+    metric: str,
+    title: str,
+    ylabel: str,
+    output: Path,
+    percent: bool = False,
+) -> None:
+    scale = 100.0 if percent else 1.0
 
-    for scenario in SCENARIOS:
-        row = aggregate_map[scenario]
+    means = [
+        float(data[s][f"{metric}_mean"]) * scale
+        for s in SCENARIOS
+    ]
 
-        mean = float(row[f"{metric}_mean"])
-        std = float(row[f"{metric}_std"])
-
-        if percentage:
-            mean *= 100
-            std *= 100
-
-        means.append(mean)
-        stds.append(std)
+    stds = [
+        float(data[s][f"{metric}_std"]) * scale
+        for s in SCENARIOS
+    ]
 
     x = np.arange(len(SCENARIOS))
 
@@ -120,216 +81,180 @@ def plot_metric(
         x,
         means,
         yerr=stds,
-        capsize=6,
+        capsize=5,
         width=0.58,
-        color="#2878B5",
-        edgecolor="#174C72",
-        alpha=0.9,
     )
 
-    ax.set_title(title, fontsize=14, fontweight="bold")
-    ax.set_ylabel(ylabel, fontsize=11)
+    ax.set_title(f"DQN v3 - {title}")
+    ax.set_ylabel(ylabel)
+    ax.set_xticks(x, LABELS)
 
-    ax.set_xticks(x)
-    ax.set_xticklabels(LABELS)
-
-    ax.grid(
-        axis="y",
-        linestyle="--",
-        alpha=0.3
-    )
-
+    ax.grid(axis="y", alpha=0.25)
     ax.set_axisbelow(True)
 
-    upper = max(
-        (m + s for m, s in zip(means, stds)),
-        default=1.0
+    top = max(
+        (m + e for m, e in zip(means, stds)),
+        default=1,
     )
+    ax.set_ylim(0, max(0.01, top * 1.25))
 
-    ax.set_ylim(0, max(upper * 1.25, 0.01))
-
-    for bar, value, std in zip(bars, means, stds):
-        ax.annotate(
+    for bar, value in zip(bars, means):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
             f"{value:.2f}",
-            xy=(
-                bar.get_x() + bar.get_width() / 2,
-                value + std
-           ),
-            xytext=(0, 8),
-            textcoords="offset points",
             ha="center",
             va="bottom",
-            fontsize=10,
-            fontweight="bold"
         )
 
     fig.text(
         0.5,
-        0.01,
-        "DQN v2 | 3 evaluation seeds: 42, 43, 44 | "
-        "500 slots/run | Error bars: sample std",
+        0.015,
+        "Mean +/- sample std across seeds 42, 43, 44",
         ha="center",
-        fontsize=9
+        fontsize=9,
     )
 
     fig.tight_layout(rect=(0, 0.04, 1, 1))
-
-    output_path = FIGURES_DIR / filename
-
-    fig.savefig(
-        output_path,
-        dpi=300,
-        bbox_inches="tight"
-    )
-
+    fig.savefig(output, dpi=250, bbox_inches="tight")
     plt.close(fig)
 
-    print(f"Created: {output_path}")
+    print(f"Created: {output}")
 
 
-# ============================================================
-# 4. VE THROUGHPUT eMBB
-# ============================================================
+def main() -> None:
+    parser = argparse.ArgumentParser()
 
-plot_metric(
-    metric="served_embb_mbps",
-    title="DQN v2 - eMBB Throughput",
-    ylabel="Throughput (Mbps)",
-    filename="embb_throughput.png"
-)
+    parser.add_argument(
+        "--input",
+        type=Path,
+        default=(
+            TV3_DIR / "results" /
+            "benchmark_v3" / "dqn_aggregate.csv"
+        ),
+    )
 
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=(
+            TV3_DIR / "figures" / "benchmark_v3"
+        ),
+    )
 
-# ============================================================
-# 5. VE THROUGHPUT URLLC
-# ============================================================
+    args = parser.parse_args()
 
-plot_metric(
-    metric="served_urllc_mbps",
-    title="DQN v2 - URLLC Throughput",
-    ylabel="Throughput (Mbps)",
-    filename="urllc_throughput.png"
-)
+    args.output.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
+    data = read_aggregate(args.input)
 
-# ============================================================
-# 6. VE URLLC COMPLETION RATE
-# ============================================================
+    metrics = (
+        (
+            "served_embb_mbps",
+            "eMBB Throughput",
+            "Mbps",
+            "embb_throughput.png",
+            False,
+        ),
+        (
+            "served_urllc_mbps",
+            "URLLC Throughput",
+            "Mbps",
+            "urllc_throughput.png",
+            False,
+        ),
+        (
+            "urllc_completion_rate",
+            "URLLC Completion",
+            "%",
+            "urllc_completion.png",
+            True,
+        ),
+        (
+            "urllc_drop_rate",
+            "URLLC Drop",
+            "%",
+            "urllc_drop.png",
+            True,
+        ),
+        (
+            "urllc_mean_delay_ms",
+            "URLLC Mean Delay",
+            "ms",
+            "urllc_mean_delay.png",
+            False,
+        ),
+        (
+            "urllc_p95_delay_ms",
+            "URLLC P95 Delay",
+            "ms",
+            "urllc_p95_delay.png",
+            False,
+        ),
+    )
 
-plot_metric(
-    metric="urllc_completion_rate",
-    title="DQN v2 - URLLC Completion Rate",
-    ylabel="Completion Rate (%)",
-    filename="urllc_completion.png",
-    percentage=True
-)
+    for metric, title, ylabel, filename, percent in metrics:
+        plot_metric(
+            data,
+            metric,
+            title,
+            ylabel,
+            args.output / filename,
+            percent,
+        )
 
+    # Seventh chart: stacked RB allocation.
+    x = np.arange(len(SCENARIOS))
 
-# ============================================================
-# 7. VE URLLC DROP RATE
-# ============================================================
+    embb = [
+        float(data[s]["mean_embb_rb_mean"])
+        for s in SCENARIOS
+    ]
 
-plot_metric(
-    metric="urllc_drop_rate",
-    title="DQN v2 - URLLC Packet Drop Rate",
-    ylabel="Packet Drop Rate (%)",
-    filename="urllc_drop.png",
-    percentage=True
-)
+    urllc = [
+        float(data[s]["mean_urllc_rb_mean"])
+        for s in SCENARIOS
+    ]
 
+    fig, ax = plt.subplots(figsize=(9, 5.5))
 
-# ============================================================
-# 8. VE URLLC MEAN DELAY
-# ============================================================
+    ax.bar(x, embb, label="eMBB")
+    ax.bar(
+        x,
+        urllc,
+        bottom=embb,
+        label="URLLC",
+    )
 
-plot_metric(
-    metric="urllc_mean_delay_ms",
-    title="DQN v2 - URLLC Mean Delay",
-    ylabel="Mean Delay (ms)",
-    filename="urllc_mean_delay.png"
-)
+    ax.set_title("DQN v3 - Mean RB Allocation")
+    ax.set_ylabel("Allocated RB")
+    ax.set_xticks(x, LABELS)
+    ax.set_ylim(0, 55)
 
+    ax.grid(axis="y", alpha=0.25)
+    ax.set_axisbelow(True)
+    ax.legend()
 
-# ============================================================
-# 9. VE URLLC P95 DELAY
-# ============================================================
+    fig.tight_layout()
 
-plot_metric(
-    metric="urllc_p95_delay_ms",
-    title="DQN v2 - URLLC P95 Delay",
-    ylabel="P95 Delay (ms)",
-    filename="urllc_p95_delay.png"
-)
+    file = args.output / "rb_allocation.png"
 
+    fig.savefig(
+        file,
+        dpi=250,
+        bbox_inches="tight",
+    )
+    plt.close(fig)
 
-# ============================================================
-# 10. VE RB ALLOCATION
-# ============================================================
-
-embb_rb = [
-    float(aggregate_map[s]["mean_embb_rb_mean"])
-    for s in SCENARIOS
-]
-
-urllc_rb = [
-    float(aggregate_map[s]["mean_urllc_rb_mean"])
-    for s in SCENARIOS
-]
-
-x = np.arange(len(SCENARIOS))
-
-fig, ax = plt.subplots(figsize=(9, 5.5))
-
-ax.bar(
-    x,
-    embb_rb,
-    label="eMBB",
-    color="#2878B5"
-)
-
-ax.bar(
-    x,
-    urllc_rb,
-    bottom=embb_rb,
-    label="URLLC",
-    color="#E69F00"
-)
-
-ax.set_title(
-    "DQN v2 - Mean RB Allocation",
-    fontsize=14,
-    fontweight="bold"
-)
-
-ax.set_ylabel("Allocated Resource Blocks")
-
-ax.set_xticks(x)
-ax.set_xticklabels(LABELS)
-
-ax.set_ylim(0, 55)
-ax.legend()
-
-ax.grid(axis="y", linestyle="--", alpha=0.3)
-ax.set_axisbelow(True)
-
-fig.text(
-    0.5,
-    0.01,
-    "Total RB = 50 | Average of 3 seeds per scenario",
-    ha="center",
-    fontsize=9
-)
-
-fig.tight_layout(rect=(0, 0.04, 1, 1))
-
-output_path = FIGURES_DIR / "rb_allocation.png"
-fig.savefig(output_path, dpi=300, bbox_inches="tight")
-plt.close(fig)
-
-print(f"Created: {output_path}")
+    print(f"Created: {file}")
+    print(
+        "PASS: seven DQN v3 charts saved, "
+        "v2 figures unchanged"
+    )
 
 
-print("\n==============================================")
-print("TV3 - KPI FIGURES COMPLETED")
-print("==============================================")
-print("Total figures: 7")
-print(f"Output directory: {FIGURES_DIR}")
+if __name__ == "__main__":
+    main()

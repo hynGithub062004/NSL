@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "time_slot": 0,
+  "scenario_id": "stable_load",
+  "seed": 42,
+  "embb": {
+    "queue_bits": 17784,
+    "cqi": 11
+  },
+  "urllc": {
+    "queue_packets": 1,
+    "queue_bits": 2560,
+    "cqi": 8,
+    "oldest_packet_delay_ms": 0.0,
+    "deadline_ms": 5.0
+  }
+}

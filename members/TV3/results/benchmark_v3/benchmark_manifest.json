@@ -1,0 +1,20 @@
+{
+  "model": "DQN v3",
+  "model_sha256": "78b2dbd5f6cb525b69a44c4dad84c0a4fdb91b275c4ec510e3d5d5fa391b7d79",
+  "checkpoint": "E:\\OneDrive - University of Transport and Communications\\TÀI LIỆU HỌC\\Kì 9\\Thiết Kế Đồ Án Viễn Thông\\NSL\\members\\TV3\\models\\dqn_v3_best.zip",
+  "training_manifest": "E:\\OneDrive - University of Transport and Communications\\TÀI LIỆU HỌC\\Kì 9\\Thiết Kế Đồ Án Viễn Thông\\NSL\\members\\TV3\\results\\training_v3\\training_manifest.json",
+  "scenarios": [
+    "stable_load",
+    "urllc_burst",
+    "poor_channel"
+  ],
+  "benchmark_seeds": [
+    42,
+    43,
+    44
+  ],
+  "slots_per_run": 500,
+  "runs": 9,
+  "source": "TV1 RANSimulator",
+  "scheduler": "dqn"
+}

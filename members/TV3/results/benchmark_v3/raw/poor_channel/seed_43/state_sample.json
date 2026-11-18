@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "time_slot": 0,
+  "scenario_id": "poor_channel",
+  "seed": 43,
+  "embb": {
+    "queue_bits": 14248,
+    "cqi": 6
+  },
+  "urllc": {
+    "queue_packets": 0,
+    "queue_bits": 0,
+    "cqi": 4,
+    "oldest_packet_delay_ms": 0.0,
+    "deadline_ms": 5.0
+  }
+}

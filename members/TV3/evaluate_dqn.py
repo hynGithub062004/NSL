@@ -1,227 +1,211 @@
 
+"""Evaluate DQN v3 on three scenarios and three held-out seeds."""
+from __future__ import annotations
+
 import argparse
 import csv
+import hashlib
 import json
+import math
 import statistics
 from pathlib import Path
 
 from stable_baselines3 import DQN
 from network_slicing_env import NetworkSlicingEnv
 
-
-# ============================================================
-# 1. CAU HINH CHUNG - DONG BO VOI TV1 VA TV2
-# ============================================================
-
 TV3_DIR = Path(__file__).resolve().parent
+ROOT = TV3_DIR.parents[1]
 
 SCENARIOS = (
     "stable_load",
     "urllc_burst",
     "poor_channel",
 )
-
 SEEDS = (42, 43, 44)
-
-SCHEDULER = "dqn"
-TOTAL_RB = 50
 EXPECTED_SLOTS = 500
+TOTAL_RB = 50
+SCHEDULER = "dqn"
 
+RUN_COLUMNS = """scenario_id seed scheduler run_id status processed_slots
+arrived_embb_bits arrived_urllc_bits offered_embb_mbps offered_urllc_mbps
+served_embb_bits served_urllc_bits served_embb_mbps served_urllc_mbps
+urllc_completion_rate urllc_drop_rate urllc_resolved_drop_rate
+urllc_unresolved_rate urllc_delay_sample_count urllc_mean_delay_ms
+urllc_p50_delay_ms urllc_p95_delay_ms urllc_max_delay_ms
+arrived_packets completed_packets dropped_packets late_completed_packets
+unresolved_packets mean_embb_rb mean_urllc_rb min_embb_rb max_embb_rb
+min_urllc_rb max_urllc_rb conservation_ok""".split()
 
-# ============================================================
-# 2. COT CSV - GIONG BASELINE_RUNS.CSV CUA TV2
-# ============================================================
-
-RUN_COLUMNS = """
-scenario_id
-seed
-scheduler
-run_id
-status
-processed_slots
-arrived_embb_bits
-arrived_urllc_bits
-offered_embb_mbps
-offered_urllc_mbps
-served_embb_bits
-served_urllc_bits
-served_embb_mbps
-served_urllc_mbps
-urllc_completion_rate
-urllc_drop_rate
-urllc_resolved_drop_rate
-urllc_unresolved_rate
-urllc_delay_sample_count
-urllc_mean_delay_ms
-urllc_p50_delay_ms
-urllc_p95_delay_ms
-urllc_max_delay_ms
-arrived_packets
-completed_packets
-dropped_packets
-late_completed_packets
-unresolved_packets
-mean_embb_rb
-mean_urllc_rb
-min_embb_rb
-max_embb_rb
-min_urllc_rb
-max_urllc_rb
-conservation_ok
-""".split()
-
-
-# KPI dung de tinh mean, std, min, max
-# Giong baseline_aggregate.csv cua TV2
-
-AGGREGATE_METRICS = """
-served_embb_mbps
-served_urllc_mbps
-urllc_completion_rate
-urllc_drop_rate
-urllc_unresolved_rate
-urllc_mean_delay_ms
-urllc_p95_delay_ms
-mean_embb_rb
-mean_urllc_rb
-""".split()
+AGGREGATE_METRICS = """served_embb_mbps served_urllc_mbps
+urllc_completion_rate urllc_drop_rate urllc_unresolved_rate
+urllc_mean_delay_ms urllc_p95_delay_ms mean_embb_rb mean_urllc_rb""".split()
 
 AGGREGATE_COLUMNS = [
     "scenario_id",
     "scheduler",
     "seed_count",
+] + [
+    f"{metric}_{suffix}"
+    for metric in AGGREGATE_METRICS
+    for suffix in ("mean", "std", "min", "max")
 ]
 
-for metric in AGGREGATE_METRICS:
-    for suffix in ("mean", "std", "min", "max"):
-        AGGREGATE_COLUMNS.append(f"{metric}_{suffix}")
 
-
-# ============================================================
-# 3. DOC JSON
-# ============================================================
-
-def read_json(path):
-    if not path.is_file():
-        raise FileNotFoundError(f"Thieu file: {path}")
-
+def read_json(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
 
-# ============================================================
-# 4. CHAY DANH GIA DQN CHO MOT SCENARIO VA SEED
-# ============================================================
+def digest(path: Path) -> str:
+    h = hashlib.sha256()
 
-def evaluate_one(model, scenario, seed, raw_root):
+    with path.open("rb") as f:
+        for chunk in iter(
+            lambda: f.read(1024 * 1024),
+            b"",
+        ):
+            h.update(chunk)
 
-    print(f"\nEvaluating: {scenario} | seed={seed}")
+    return h.hexdigest()
 
-    # NetworkSlicingEnv tu tim config trong members/TV1
-    config_path = f"members/TV1/configs/{scenario}.yaml"
 
-    env = NetworkSlicingEnv(config_path=config_path)
+def write_csv(
+    path: Path,
+    columns: list[str],
+    rows: list[dict],
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with path.open(
+        "w",
+        newline="",
+        encoding="utf-8-sig",
+    ) as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=columns,
+            extrasaction="raise",
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def evaluate_one(
+    model: DQN,
+    scenario: str,
+    seed: int,
+    raw_root: Path,
+) -> None:
+    env = NetworkSlicingEnv(
+        f"members/TV1/configs/{scenario}.yaml"
+    )
 
     try:
-        obs, _ = env.reset(seed=seed)
+        obs, info = env.reset(seed=seed)
 
-        done = False
+        if info["effective_seed"] != seed:
+            raise RuntimeError("Benchmark seed mismatch")
+
         steps = 0
+        terminated = False
+        truncated = False
 
-        while not done:
-
+        while not (terminated or truncated):
             action, _ = model.predict(
                 obs,
-                deterministic=True
+                deterministic=True,
             )
 
-            obs, reward, terminated, truncated, info = env.step(
+            obs, _, terminated, truncated, _ = env.step(
                 int(action)
             )
-
-            done = bool(terminated or truncated)
             steps += 1
 
         if steps != EXPECTED_SLOTS:
             raise RuntimeError(
-                f"Sai so slot: {steps}, expected={EXPECTED_SLOTS}"
+                f"Wrong slot count: {scenario}/{seed}: {steps}"
             )
 
-        output_dir = raw_root / scenario / f"seed_{seed}"
+        env.ran.export_results(
+            raw_root / scenario / f"seed_{seed}"
+        )
 
-        # Xuat du lieu goc truc tiep tu TV1
-        env.ran.export_results(output_dir)
-
-        print(f"PASS: {steps} slots")
+        print(
+            f"PASS: {scenario} seed={seed}, slots={steps}"
+        )
 
     finally:
         env.close()
 
 
-# ============================================================
-# 5. DOC LOG TV1 VA TAO MOT DONG DQN_RUNS.CSV
-# ============================================================
-
-def build_run_row(raw_root, scenario, seed):
-
+def build_run_row(
+    raw_root: Path,
+    scenario: str,
+    seed: int,
+) -> dict:
     folder = raw_root / scenario / f"seed_{seed}"
 
-    summary = read_json(folder / "run_summary.json")
-    manifest = read_json(folder / "run_manifest.json")
+    summary = read_json(
+        folder / "run_summary.json"
+    )
+    manifest = read_json(
+        folder / "run_manifest.json"
+    )
 
-    transitions_file = folder / "transitions.jsonl"
-
-    if not transitions_file.is_file():
-        raise FileNotFoundError(transitions_file)
-
-    with transitions_file.open("r", encoding="utf-8") as f:
+    with (
+        folder / "transitions.jsonl"
+    ).open("r", encoding="utf-8") as f:
         transitions = [
             json.loads(line)
             for line in f
             if line.strip()
         ]
 
-    if summary["status"] != "complete":
-        raise RuntimeError("Run chua hoan thanh")
-
-    if summary["processed_slots"] != EXPECTED_SLOTS:
-        raise RuntimeError("Sai so slot")
-
-    if len(transitions) != EXPECTED_SLOTS:
-        raise RuntimeError("So transition khong hop le")
+    if (
+        summary["status"] != "complete"
+        or summary["processed_slots"] != EXPECTED_SLOTS
+        or len(transitions) != EXPECTED_SLOTS
+    ):
+        raise RuntimeError(
+            f"Incomplete run: {scenario}/{seed}"
+        )
 
     if (
         summary["scenario_id"] != scenario
         or int(summary["seed"]) != seed
     ):
-        raise RuntimeError("Sai scenario hoac seed")
+        raise RuntimeError(
+            "Scenario/seed mismatch"
+        )
 
     if manifest.get("algorithms") != [SCHEDULER]:
-        raise RuntimeError("Sai scheduler trong manifest")
+        raise RuntimeError(
+            "Not a DQN-only run"
+        )
 
     packets = summary["urllc_packet_counters"]
-    traffic = summary["traffic_and_service"]
-    rates = summary["urllc_run_rates"]
-    delays = summary["completed_urllc_delay_ms"]
 
     if packets["conservation_ok"] is not True:
-        raise RuntimeError("Packet conservation FAILED")
+        raise RuntimeError(
+            "Packet conservation failed"
+        )
 
-    # Lay RB allocation tu Action cua TV3
-    embb_rb = []
-    urllc_rb = []
+    e_rb = []
+    u_rb = []
 
-    for transition in transitions:
+    for i, transition in enumerate(transitions):
+        act = transition["action"]
 
-        action = transition["action"]
+        if (
+            act["scheduler"] != SCHEDULER
+            or act["time_slot"] != i
+        ):
+            raise RuntimeError(
+                "Scheduler or time slot mismatch"
+            )
 
-        if action["scheduler"] != SCHEDULER:
-            raise RuntimeError("Action khong phai DQN")
-
-        allocation = action["rb_allocation"]
-
-        e = allocation["embb"]
-        u = allocation["urllc"]
+        e = act["rb_allocation"]["embb"]
+        u = act["rb_allocation"]["urllc"]
 
         if (
             type(e) is not int
@@ -231,14 +215,17 @@ def build_run_row(raw_root, scenario, seed):
             or e + u != TOTAL_RB
         ):
             raise RuntimeError(
-                f"RB allocation khong hop le: {allocation}"
+                "Invalid RB allocation"
             )
 
-        embb_rb.append(e)
-        urllc_rb.append(u)
+        e_rb.append(e)
+        u_rb.append(u)
 
-    # Tao row theo dung ten cot cua TV2
-    row = {
+    traffic = summary["traffic_and_service"]
+    rates = summary["urllc_run_rates"]
+    delays = summary["completed_urllc_delay_ms"]
+
+    return {
         "scenario_id": scenario,
         "seed": seed,
         "scheduler": SCHEDULER,
@@ -275,230 +262,291 @@ def build_run_row(raw_root, scenario, seed):
         "late_completed_packets": packets["late_completed"],
         "unresolved_packets": packets["unresolved_at_end"],
 
-        "mean_embb_rb": round(statistics.fmean(embb_rb), 6),
-        "mean_urllc_rb": round(statistics.fmean(urllc_rb), 6),
+        "mean_embb_rb": round(
+            statistics.fmean(e_rb), 6
+        ),
+        "mean_urllc_rb": round(
+            statistics.fmean(u_rb), 6
+        ),
 
-        "min_embb_rb": min(embb_rb),
-        "max_embb_rb": max(embb_rb),
-        "min_urllc_rb": min(urllc_rb),
-        "max_urllc_rb": max(urllc_rb),
+        "min_embb_rb": min(e_rb),
+        "max_embb_rb": max(e_rb),
+        "min_urllc_rb": min(u_rb),
+        "max_urllc_rb": max(u_rb),
 
         "conservation_ok": packets["conservation_ok"],
     }
 
-    return row
 
-
-# ============================================================
-# 6. KIEM TRA TRAFFIC DQN CO GIONG TV2 KHONG
-# ============================================================
-
-def verify_baseline_traffic(rows):
-
+def verify_baseline_traffic(
+    rows: list[dict],
+) -> None:
     baseline_path = (
-        TV3_DIR.parent
-        / "TV2"
-        / "results"
-        / "baseline_runs.csv"
+        ROOT / "members" / "TV2" /
+        "results" / "baseline_runs.csv"
     )
 
     if not baseline_path.is_file():
-        print("WARNING: Chua co baseline_runs.csv de doi chieu")
+        print(
+            "WARNING: TV2 baseline_runs.csv missing; "
+            "cannot verify offered traffic"
+        )
         return
 
     with baseline_path.open(
         "r",
+        newline="",
         encoding="utf-8-sig",
-        newline=""
     ) as f:
-
-        baseline_rows = list(csv.DictReader(f))
-
-    baseline_map = {
-        (r["scenario_id"], int(r["seed"])): r
-        for r in baseline_rows
-        if r["scheduler"] == "static"
-    }
-
-    fields = (
-        "arrived_embb_bits",
-        "arrived_urllc_bits",
-        "offered_embb_mbps",
-        "offered_urllc_mbps",
-    )
+        reference = {
+            (
+                r["scenario_id"],
+                int(r["seed"]),
+            ): r
+            for r in csv.DictReader(f)
+            if r["scheduler"] == "static"
+        }
 
     for row in rows:
+        key = (
+            row["scenario_id"],
+            int(row["seed"]),
+        )
 
-        key = (row["scenario_id"], row["seed"])
-        baseline = baseline_map.get(key)
+        if key not in reference:
+            raise RuntimeError(
+                f"Missing TV2 static baseline: {key}"
+            )
 
-        if baseline is None:
-            raise RuntimeError(f"Thieu baseline: {key}")
+        base = reference[key]
 
-        for field in fields:
-
-            if str(row[field]) != str(baseline[field]):
-
+        for metric in (
+            "arrived_embb_bits",
+            "arrived_urllc_bits",
+        ):
+            if int(row[metric]) != int(base[metric]):
                 raise RuntimeError(
-                    f"TRAFFIC MISMATCH: {key}, {field}"
+                    f"Traffic mismatch: {key}, {metric}"
                 )
 
-    print("PASS: DQN va TV2 su dung cung offered traffic")
+        for metric in (
+            "offered_embb_mbps",
+            "offered_urllc_mbps",
+        ):
+            if not math.isclose(
+                float(row[metric]),
+                float(base[metric]),
+                rel_tol=1e-9,
+                abs_tol=1e-8,
+            ):
+                raise RuntimeError(
+                    f"Offered rate mismatch: {key}, {metric}"
+                )
+
+    print(
+        "PASS: DQN v3 traffic matches TV2 static baseline"
+    )
 
 
-# ============================================================
-# 7. TAO DQN_AGGREGATE.CSV
-# ============================================================
-
-def build_aggregate(rows):
-
-    aggregate_rows = []
+def build_aggregate(
+    rows: list[dict],
+) -> list[dict]:
+    result = []
 
     for scenario in SCENARIOS:
-
         group = [
-            row for row in rows
-            if row["scenario_id"] == scenario
+            r for r in rows
+            if r["scenario_id"] == scenario
         ]
 
-        if len(group) != len(SEEDS):
-            raise RuntimeError("Khong du 3 seed")
+        if (
+            len(group) != len(SEEDS)
+            or {r["seed"] for r in group} != set(SEEDS)
+        ):
+            raise RuntimeError(
+                f"Missing seed in scenario {scenario}"
+            )
 
-        aggregate = {
+        row = {
             "scenario_id": scenario,
             "scheduler": SCHEDULER,
             "seed_count": len(group),
         }
 
         for metric in AGGREGATE_METRICS:
-
             values = [
-                float(row[metric])
-                for row in group
+                float(r[metric])
+                for r in group
             ]
 
-            stats = {
-                "mean": statistics.fmean(values),
-                "std": statistics.stdev(values),
-                "min": min(values),
-                "max": max(values),
-            }
-
-            for suffix, value in stats.items():
-                aggregate[f"{metric}_{suffix}"] = round(
+            for suffix, value in (
+                ("mean", statistics.fmean(values)),
+                ("std", statistics.stdev(values)),
+                ("min", min(values)),
+                ("max", max(values)),
+            ):
+                row[f"{metric}_{suffix}"] = round(
                     value, 6
                 )
 
-        aggregate_rows.append(aggregate)
+        result.append(row)
 
-    return aggregate_rows
-
-
-# ============================================================
-# 8. HAM GHI CSV
-# ============================================================
-
-def write_csv(path, columns, rows):
-
-    path.parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    with path.open(
-        "w",
-        encoding="utf-8-sig",
-        newline=""
-    ) as f:
-
-        writer = csv.DictWriter(
-            f,
-            fieldnames=columns
-        )
-
-        writer.writeheader()
-        writer.writerows(rows)
+    return result
 
 
-# ============================================================
-# 9. CHUONG TRINH CHINH
-# ============================================================
-
-def main():
-
+def main() -> None:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
         "--model",
         type=Path,
-        default=TV3_DIR / "models" / "dqn_v2_best.zip"
+        default=TV3_DIR / "models" / "dqn_v3_best.zip",
     )
 
     parser.add_argument(
         "--output",
         type=Path,
-        default=TV3_DIR / "results"
+        default=TV3_DIR / "results" / "benchmark_v3",
     )
 
     args = parser.parse_args()
 
     if not args.model.is_file():
-        parser.error(f"Khong tim thay model: {args.model}")
+        parser.error(
+            f"Checkpoint not found: {args.model}"
+        )
 
-    output_dir = args.output
-    raw_root = output_dir / "benchmark"
+    train_manifest_path = (
+        TV3_DIR / "results" /
+        "training_v3" / "training_manifest.json"
+    )
 
-    print("=" * 60)
-    print("TV3 - DQN BENCHMARK")
-    print("=" * 60)
+    if not train_manifest_path.is_file():
+        parser.error(
+            "Missing training_v3/training_manifest.json; "
+            "train v3 first"
+        )
 
-    model = DQN.load(str(args.model))
+    train_manifest = read_json(
+        train_manifest_path
+    )
 
-    # Chay 9 lan evaluation
+    model_hash = digest(args.model)
+
+    if (
+        model_hash
+        != train_manifest["best_checkpoint_sha256"]
+    ):
+        parser.error(
+            "Checkpoint SHA-256 does not match "
+            "the trained v3 best model"
+        )
+
+    if set(
+        train_manifest["train_seeds_completed"]
+    ) & set(SEEDS):
+        parser.error(
+            "Benchmark seed overlaps actual training seeds"
+        )
+
+    if set(
+        train_manifest["validation_seeds"]
+    ) & set(SEEDS):
+        parser.error(
+            "Benchmark seed overlaps validation seeds"
+        )
+
+    if (
+        args.output.resolve()
+        == (TV3_DIR / "results").resolve()
+    ):
+        parser.error(
+            "Refusing to overwrite original "
+            "DQN v2 results directory"
+        )
+
+    for filename in (
+        "dqn_runs.csv",
+        "dqn_aggregate.csv",
+        "benchmark_manifest.json",
+    ):
+        if (args.output / filename).exists():
+            parser.error(
+                f"Output already exists: "
+                f"{args.output / filename}"
+            )
+
+    model = DQN.load(
+        str(args.model),
+        device="cpu",
+    )
+
+    raw_root = args.output / "raw"
+
     for scenario in SCENARIOS:
         for seed in SEEDS:
-            evaluate_one(model, scenario, seed, raw_root)
+            evaluate_one(
+                model,
+                scenario,
+                seed,
+                raw_root,
+            )
 
-    # Doc log TV1 va tong hop
     rows = [
-        build_run_row(raw_root, scenario, seed)
-        for scenario in SCENARIOS
+        build_run_row(
+            raw_root,
+            s,
+            seed,
+        )
+        for s in SCENARIOS
         for seed in SEEDS
     ]
 
     verify_baseline_traffic(rows)
 
-    aggregate_rows = build_aggregate(rows)
-
-    # Xuat CSV cung cau truc TV2
-    runs_path = output_dir / "dqn_runs.csv"
-    aggregate_path = output_dir / "dqn_aggregate.csv"
+    aggregates = build_aggregate(rows)
 
     write_csv(
-        runs_path,
+        args.output / "dqn_runs.csv",
         RUN_COLUMNS,
-        rows
+        rows,
     )
 
     write_csv(
-        aggregate_path,
+        args.output / "dqn_aggregate.csv",
         AGGREGATE_COLUMNS,
-        aggregate_rows
+        aggregates,
     )
 
-    print("\n" + "=" * 60)
-    print("DQN EVALUATION COMPLETED")
-    print("=" * 60)
+    (
+        args.output / "benchmark_manifest.json"
+    ).write_text(
+        json.dumps(
+            {
+                "model": "DQN v3",
+                "model_sha256": model_hash,
+                "checkpoint": str(args.model.resolve()),
+                "training_manifest": str(
+                    train_manifest_path.resolve()
+                ),
+                "scenarios": list(SCENARIOS),
+                "benchmark_seeds": list(SEEDS),
+                "slots_per_run": EXPECTED_SLOTS,
+                "runs": len(rows),
+                "source": "TV1 RANSimulator",
+                "scheduler": SCHEDULER,
+            },
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
 
-    print(f"Total runs: {len(rows)}")
-    print(f"Scenarios: {len(SCENARIOS)}")
-    print(f"Seeds: {list(SEEDS)}")
-
-    print(f"\nCreated: {runs_path}")
-    print(f"Created: {aggregate_path}")
-    print(f"Raw logs: {raw_root}")
-
-    print("\nSUCCESS: CSV format compatible with TV2")
+    print(
+        "\nPASS: DQN v3 benchmark, 9/9 runs; "
+        "DQN v2 files untouched"
+    )
+    print(f"Results: {args.output}")
 
 
 if __name__ == "__main__":
