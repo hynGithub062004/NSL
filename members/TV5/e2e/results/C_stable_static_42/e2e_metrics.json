@@ -1,0 +1,29 @@
+{
+  "run_id": "e2ebc28de01d4859",
+  "source": "TV1 simulator -> TV4 GNS3 Client/Server logs",
+  "status": "CORE_PACKET_REPLAY_VERIFIED_IF_RECEIVER_LOG_FROM_REAL_GNS3",
+  "urllc": {
+    "generated_at_ran": 35,
+    "completed_at_ran": 35,
+    "delivered_to_server": 35,
+    "server_delivery_rate_over_ran_generated": 1.0,
+    "hybrid_e2e_on_time": 35,
+    "hybrid_e2e_on_time_ratio": 1.0,
+    "hybrid_e2e_delay_ms_mean": 2.8656197142857143,
+    "timing_warning": "RAN delay simulated + Core monotonic real delay. Validation of 1 ms replay jitter required."
+  },
+  "embb": {
+    "ran_served_bits": 253147,
+    "received_unique_bits": 253147,
+    "received_fraction_vs_ran_served": 1.0,
+    "core_replay_goodput_mbps": 9.615645393130151,
+    "observation_seconds": 0.026326574
+  },
+  "sent_datagrams": 106,
+  "received_unique_datagrams": 106,
+  "limitations": [
+    "Do not equate simulated RAN clock with radio hardware time.",
+    "Do not claim 5 ms E2E deadline without validating clock and replay jitter.",
+    "Received logs do not prove SRv6 route unless policy readback/PCAP accompany the run."
+  ]
+}

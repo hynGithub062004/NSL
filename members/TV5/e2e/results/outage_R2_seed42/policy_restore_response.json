@@ -1,0 +1,18 @@
+﻿{
+    "applied":  true,
+    "changed":  true,
+    "checked_at_utc":  "2026-11-18T12:45:37.562588+00:00",
+    "note":  "Routing config verified; this is not a packet-loss or connectivity SLA test",
+    "other_slice_table":  101,
+    "other_slice_untouched":  true,
+    "path":  "R1 -\u003e R2 -\u003e R4 -\u003e Server",
+    "previous_policy":  "low_latency",
+    "request_id":  "TV5_R2_20261118194501_restore",
+    "requested_policy":  "high_bandwidth",
+    "routing_table":  100,
+    "selected_policy":  "high_bandwidth",
+    "slice_id":  "embb",
+    "source_ipv6":  "2001:db8:10::2",
+    "status":  "applied",
+    "verified":  true
+}

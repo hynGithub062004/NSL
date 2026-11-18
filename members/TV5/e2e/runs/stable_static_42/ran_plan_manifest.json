@@ -1,0 +1,13 @@
+{
+  "run_id": "e2ebc28de01d4859",
+  "source": "TV1_RANSimulator",
+  "scheduler": "static",
+  "seed": 42,
+  "slots": 25,
+  "rb_embb": 25,
+  "rb_urllc": 25,
+  "slot_duration_ms": 1.0,
+  "status": "RAN_REPLAY_PLAN_ONLY_NOT_E2E",
+  "config_path": "members\\TV1\\configs\\stable_load.yaml",
+  "description": "This plan reflects TV1 real arrivals/serving. It is not proof of delivery in GNS3."
+}

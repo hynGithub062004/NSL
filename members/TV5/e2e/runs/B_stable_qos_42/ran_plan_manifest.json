@@ -1,0 +1,13 @@
+{
+  "run_id": "e2e4f17854018fd0",
+  "source": "TV1_RANSimulator+TV2_qos_heuristic",
+  "scheduler": "qos_heuristic",
+  "seed": 42,
+  "slots": 25,
+  "slot_duration_ms": 1.0,
+  "rb_embb": "dynamic",
+  "rb_urllc": "dynamic",
+  "status": "RAN_REPLAY_PLAN_ONLY_NOT_E2E",
+  "config_path": "members\\TV1\\configs\\stable_load.yaml",
+  "description": "TV1/TV2 actual run. NOT evidence of GNS3 delivery."
+}
