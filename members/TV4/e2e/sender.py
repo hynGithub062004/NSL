@@ -67,7 +67,7 @@ def main():
     try:
         with args.out.open('w',encoding='utf-8') as f:
             for event in events:
-                scheduled_ns=start+int(event['send_slot']*slot_ms*1e6*args.scale)
+                scheduled_ns=start+int((event['send_slot']+1)*slot_ms*1e6*args.scale)
                 now=time.monotonic_ns()
                 if scheduled_ns>now:time.sleep((scheduled_ns-now)/1e9)
                 event['sent_mono_ns']=time.monotonic_ns()

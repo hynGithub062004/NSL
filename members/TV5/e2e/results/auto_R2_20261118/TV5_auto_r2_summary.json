@@ -1,0 +1,59 @@
+{
+  "run_id": "ab9452b542f743cc",
+  "status": "PASS",
+  "started_utc": "2026-11-18T16:24:21.312+00:00",
+  "mode": "GNS3 VM live probes + TV4 Core policy API",
+  "thresholds": {
+    "failure_consecutive": 2,
+    "recovery_consecutive": 3,
+    "interval_seconds": 0.8,
+    "post_policy_verification_attempts": 8,
+    "post_policy_verification_gap_seconds": 1.0
+  },
+  "baseline": {
+    "policies": {
+      "embb": "high_bandwidth",
+      "urllc": "low_latency",
+      "canonical_valid": true
+    },
+    "probes": {
+      "embb": {
+        "node": "Client",
+        "source": "2001:db8:10::2",
+        "target": "2001:db8:40::2",
+        "sent": 3,
+        "received": 3,
+        "reachable": true,
+        "loss_pct": 0.0
+      },
+      "urllc": {
+        "node": "Client",
+        "source": "2001:db8:10::3",
+        "target": "2001:db8:40::2",
+        "sent": 2,
+        "received": 2,
+        "reachable": true,
+        "loss_pct": 0.0
+      },
+      "r2_link": {
+        "node": "R2",
+        "source": "2001:db8:24::2",
+        "target": "2001:db8:24::4",
+        "sent": 2,
+        "received": 2,
+        "reachable": true,
+        "loss_pct": 0.0
+      }
+    }
+  },
+  "failover_verified": true,
+  "failover_probe_attempts": 1,
+  "recovery_probe_attempts": 1,
+  "restored_automatically": true,
+  "ended_utc": "2026-11-18T16:27:48.952+00:00",
+  "final_policy": {
+    "embb": "high_bandwidth",
+    "urllc": "low_latency",
+    "canonical_valid": true
+  }
+}
