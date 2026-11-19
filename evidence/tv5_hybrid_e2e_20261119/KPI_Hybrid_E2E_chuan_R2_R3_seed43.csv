@@ -1,0 +1,3 @@
+﻿"PhuongAn","Policy_eMBB","URLLC_PhatSinh","URLLC_HoanThanh","URLLC_ServerNhan","URLLC_DungHanHybrid","DungHanPct","TreHybridMs","GoodputMbps","Sent","Received","NguonJSON"
+"Static_R2","high_bandwidth","39","36","36","36","92.31","2.979","9.977","114","114","eval43_static_r2_01\e2e_metrics.json"
+"TV5_V2_R3","low_latency","39","36","36","34","87.18","3.442","10.566","114","114","v2_run_demo01\tv5v2_s43_demo01\e2e_metrics.json"

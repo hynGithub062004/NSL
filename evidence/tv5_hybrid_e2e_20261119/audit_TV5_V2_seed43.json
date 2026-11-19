@@ -1,0 +1,253 @@
+{
+  "status": "COMPLETED_RESTORED",
+  "created_utc": "2026-11-18T21:53:40.060013+00:00",
+  "seed": 43,
+  "scenario": "stable_load",
+  "calibration_sha256": "dd5ac476ab3bc7e30e3a5f66a4c350b49e67eb69546dbc40d0f2362ea3a9dc83",
+  "selected": {
+    "scheduler": "static",
+    "embb_policy": "low_latency",
+    "urllc_policy": "low_latency",
+    "evidence_id": "csv-A-D-C-sha256-dd5ac476ab3bc7e3",
+    "urllc_on_time_rate_est": 0.9741379310344828,
+    "embb_goodput_mbps_est": 9.013
+  },
+  "selector_audit": {
+    "status": "SELECTED_OFFLINE_NOT_APPLIED",
+    "mode": "OFFLINE_CALIBRATION_DECISION_ONLY",
+    "scenario": "stable_load",
+    "evaluation_seed": 43,
+    "calibration_seeds": [
+      101,
+      102,
+      103
+    ],
+    "g_min_mbps": 8.0,
+    "core_health_snapshot": {
+      "r2": true,
+      "r3": true
+    },
+    "selected": {
+      "scheduler": "static",
+      "embb_policy": "low_latency",
+      "urllc_policy": "low_latency",
+      "evidence_id": "csv-A-D-C-sha256-dd5ac476ab3bc7e3",
+      "urllc_on_time_rate_est": 0.9741379310344828,
+      "embb_goodput_mbps_est": 9.013
+    },
+    "candidate_audit": [
+      {
+        "scheduler": "static",
+        "embb_policy": "high_bandwidth",
+        "urllc_policy": "low_latency",
+        "urllc_on_time_rate_est": 0.8793103448275862,
+        "embb_goodput_mbps_est": 7.883333333333333,
+        "evidence_id": "csv-A-D-A-sha256-dd5ac476ab3bc7e3",
+        "feasible": false,
+        "reasons": [
+          "goodput_below_g_min"
+        ]
+      },
+      {
+        "scheduler": "qos_heuristic",
+        "embb_policy": "high_bandwidth",
+        "urllc_policy": "low_latency",
+        "urllc_on_time_rate_est": 0.9051724137931034,
+        "embb_goodput_mbps_est": 11.216,
+        "evidence_id": "csv-A-D-B-sha256-dd5ac476ab3bc7e3",
+        "feasible": true,
+        "reasons": []
+      },
+      {
+        "scheduler": "static",
+        "embb_policy": "low_latency",
+        "urllc_policy": "low_latency",
+        "urllc_on_time_rate_est": 0.9741379310344828,
+        "embb_goodput_mbps_est": 9.013,
+        "evidence_id": "csv-A-D-C-sha256-dd5ac476ab3bc7e3",
+        "feasible": true,
+        "reasons": []
+      },
+      {
+        "scheduler": "qos_heuristic",
+        "embb_policy": "low_latency",
+        "urllc_policy": "low_latency",
+        "urllc_on_time_rate_est": 0.8017241379310345,
+        "embb_goodput_mbps_est": 11.847333333333333,
+        "evidence_id": "csv-A-D-D-sha256-dd5ac476ab3bc7e3",
+        "feasible": true,
+        "reasons": []
+      }
+    ],
+    "limitations": [
+      "Predictions require independently measured calibration; this module does not estimate them.",
+      "Selected policy has NOT been applied to TV4 and E2E performance has NOT been measured.",
+      "Do not treat a calibration or demonstration input as an evaluation result."
+    ]
+  },
+  "ran_dir": "members\\TV5\\e2e\\evaluation\\stable_load\\seed43\\static",
+  "ran_run_id": "e2e2edbab4d9d700",
+  "ran_export_status": "RAN_REPLAY_PLAN_ONLY_NOT_E2E",
+  "health_flags_are_operator_assertions": true,
+  "limitations": [
+    "Hybrid: RAN is a simulator; Core datagrams are replayed on real GNS3 containers.",
+    "Shared monotonic clock is verified only for the host namespaces, not the simulated radio clock.",
+    "The eMBB goodput is an observed replay-window quotient; it can vary with timing.",
+    "TV4 policy readback is not independent SRv6 packet-path proof. Supply PCAP or route evidence separately.",
+    "R2/R3 health flags are operator statements, not automated health probes.",
+    "Static 25/25 and TV2 QoS are applied through the RAN export, not dynamically re-optimized per slot.",
+    "The chosen policy is calibrated for stable_load only, not generalized to other load scenarios."
+  ],
+  "tv4_before": {
+    "baseline_status": "ok",
+    "canonical_valid": true,
+    "checked_at_utc": "2026-11-18T21:53:36.169279+00:00",
+    "mode": "controlled_apply",
+    "slices": {
+      "embb": {
+        "active_policy": "high_bandwidth",
+        "expected_policy": "high_bandwidth",
+        "matches_expected_policy": true,
+        "path": "R1 -> R2 -> R4 -> Server",
+        "route_raw": "2001:db8:40::/64  encap seg6 mode encap segs 2 [ 2001:db8:200::2 2001:db8:400::4 ] via 2001:db8:12::2 dev eth1 metric 1024 pref medium",
+        "routing_table": 100,
+        "rule_present": true,
+        "source_ipv6": "2001:db8:10::2"
+      },
+      "urllc": {
+        "active_policy": "low_latency",
+        "expected_policy": "low_latency",
+        "matches_expected_policy": true,
+        "path": "R1 -> R3 -> R4 -> Server",
+        "route_raw": "2001:db8:40::/64  encap seg6 mode encap segs 2 [ 2001:db8:300::3 2001:db8:400::4 ] via 2001:db8:13::3 dev eth2 metric 1024 pref medium",
+        "routing_table": 101,
+        "rule_present": true,
+        "source_ipv6": "2001:db8:10::3"
+      }
+    },
+    "status": "ok"
+  },
+  "tag": "tv5v2_s43_demo01",
+  "remote_ran": "evaluation/seed43/v2_tv5v2_s43_demo01/static",
+  "remote_measure": "measurements/tv5v2_s43_demo01",
+  "gns3_namespace_pids": {
+    "client": 3817,
+    "server": 4000
+  },
+  "restoration": {
+    "attempted": true,
+    "verified": true,
+    "started_utc": "2026-11-18T21:54:28.434376+00:00",
+    "response": {
+      "applied": true,
+      "changed": true,
+      "checked_at_utc": "2026-11-18T21:54:28.803502+00:00",
+      "note": "Routing config verified; this is not a packet-loss or connectivity SLA test",
+      "other_slice_table": 101,
+      "other_slice_untouched": true,
+      "path": "R1 -> R2 -> R4 -> Server",
+      "previous_policy": "low_latency",
+      "request_id": "tv5v2_s43_demo01-restore",
+      "requested_policy": "high_bandwidth",
+      "routing_table": 100,
+      "selected_policy": "high_bandwidth",
+      "slice_id": "embb",
+      "source_ipv6": "2001:db8:10::2",
+      "status": "applied",
+      "verified": true
+    },
+    "tv4_after": {
+      "baseline_status": "ok",
+      "canonical_valid": true,
+      "checked_at_utc": "2026-11-18T21:54:28.953945+00:00",
+      "mode": "controlled_apply",
+      "slices": {
+        "embb": {
+          "active_policy": "high_bandwidth",
+          "expected_policy": "high_bandwidth",
+          "matches_expected_policy": true,
+          "path": "R1 -> R2 -> R4 -> Server",
+          "route_raw": "2001:db8:40::/64  encap seg6 mode encap segs 2 [ 2001:db8:200::2 2001:db8:400::4 ] via 2001:db8:12::2 dev eth1 metric 1024 pref medium",
+          "routing_table": 100,
+          "rule_present": true,
+          "source_ipv6": "2001:db8:10::2"
+        },
+        "urllc": {
+          "active_policy": "low_latency",
+          "expected_policy": "low_latency",
+          "matches_expected_policy": true,
+          "path": "R1 -> R3 -> R4 -> Server",
+          "route_raw": "2001:db8:40::/64  encap seg6 mode encap segs 2 [ 2001:db8:300::3 2001:db8:400::4 ] via 2001:db8:13::3 dev eth2 metric 1024 pref medium",
+          "routing_table": 101,
+          "rule_present": true,
+          "source_ipv6": "2001:db8:10::3"
+        }
+      },
+      "status": "ok"
+    },
+    "completed_utc": "2026-11-18T21:54:28.955041+00:00"
+  },
+  "tv4_apply_response": {
+    "applied": true,
+    "changed": true,
+    "checked_at_utc": "2026-11-18T21:53:48.389070+00:00",
+    "note": "Routing config verified; this is not a packet-loss or connectivity SLA test",
+    "other_slice_table": 101,
+    "other_slice_untouched": true,
+    "path": "R1 -> R3 -> R4 -> Server",
+    "previous_policy": "high_bandwidth",
+    "request_id": "tv5v2_s43_demo01-apply",
+    "requested_policy": "low_latency",
+    "routing_table": 100,
+    "selected_policy": "low_latency",
+    "slice_id": "embb",
+    "source_ipv6": "2001:db8:10::2",
+    "status": "applied",
+    "verified": true
+  },
+  "tv4_after": {
+    "baseline_status": "degraded",
+    "canonical_valid": true,
+    "checked_at_utc": "2026-11-18T21:53:48.530986+00:00",
+    "mode": "controlled_apply",
+    "slices": {
+      "embb": {
+        "active_policy": "low_latency",
+        "expected_policy": "high_bandwidth",
+        "matches_expected_policy": false,
+        "path": "R1 -> R3 -> R4 -> Server",
+        "route_raw": "2001:db8:40::/64  encap seg6 mode encap segs 2 [ 2001:db8:300::3 2001:db8:400::4 ] via 2001:db8:13::3 dev eth2 metric 1024 pref medium",
+        "routing_table": 100,
+        "rule_present": true,
+        "source_ipv6": "2001:db8:10::2"
+      },
+      "urllc": {
+        "active_policy": "low_latency",
+        "expected_policy": "low_latency",
+        "matches_expected_policy": true,
+        "path": "R1 -> R3 -> R4 -> Server",
+        "route_raw": "2001:db8:40::/64  encap seg6 mode encap segs 2 [ 2001:db8:300::3 2001:db8:400::4 ] via 2001:db8:13::3 dev eth2 metric 1024 pref medium",
+        "routing_table": 101,
+        "rule_present": true,
+        "source_ipv6": "2001:db8:10::3"
+      }
+    },
+    "status": "ok"
+  },
+  "summary": {
+    "run_id": "e2e2edbab4d9d700",
+    "status": "HYBRID_GNS3_REPLAY_VERIFIED_NOT_STRICT_E2E",
+    "sent_unique": 114,
+    "received_unique": 114,
+    "urllc_generated": 39,
+    "urllc_on_time": 34,
+    "urllc_on_time_ratio": 0.8717948717948718,
+    "urllc_hybrid_mean_ms": 3.4415000555555557,
+    "embb_replay_goodput_mbps": 10.566238745480597,
+    "playback_lag_mean_ms": 0.18149122807017545,
+    "playback_lag_p95_ms": 0.508,
+    "playback_lag_max_ms": 0.606,
+    "playback_lag_over_1ms_count": 0
+  },
+  "local_measurement_dir": "members\\TV5\\e2e\\evaluation\\stable_load\\seed43\\v2_run_demo01\\tv5v2_s43_demo01"
+}
