@@ -6,7 +6,7 @@
 - Controller mở rộng `members/TV4/controller/tv4_web_agent.py` chạy **trong GNS3 VM**, cùng thư mục với bốn module TV4 hiện có. Windows kết nối qua SSH tunnel `127.0.0.1:18018 → VM:127.0.0.1:8018`.
 - Một lô RAN gồm 4 thuật toán × 3 seed cùng cấu hình. Core áp policy/kịch bản một lần, rồi đo ICMP RTT, TCP/UDP lần lượt cho hai slice sau các lượt RAN. **Không phải phép đo gói tin End-to-End qua RAN và Core cùng lúc.** Core KPI chung cho lô, không gán thành KPI riêng từng thuật toán.
 - API `/core-kpi` cũ là dữ liệu lịch sử, web không đưa vào kết quả một lượt chạy mới. `switching_time_ms` chưa được đo. Khi không đo Core được, lượt chạy báo lỗi và lưu log.
-- DQN dùng checkpoint `members/TV3/models/dqn_v2_best.zip`. Thay đổi RB/tải/CQI/deadline so với huấn luyện là phép thử ngoại suy, không phải kết quả chuẩn của checkpoint.
+- DQN dùng checkpoint `members/TV3/models/dqn_v3_best.zip`. Thay đổi RB/tải/CQI/deadline so với huấn luyện là phép thử ngoại suy, không phải kết quả chuẩn của checkpoint.
 
 ## Cài đặt trên GNS3 VM (TV4)
 
@@ -56,3 +56,11 @@ Những thao tác này thay qdisc `root` của `eth1` trên R2/R3; sử dụng *
 - Máy VM: `POST /v1/lab/scenario` và `POST /v1/lab/measure` bổ sung trên controller cổng 8018. Các endpoint TV4 cũ vẫn hoạt động.
 
 Mỗi slot lưu `request_id`, CQI, queue, action/RB và KPI. Tỷ lệ rớt gói ở bảng so sánh lấy từ tổng gói của mỗi seed. Các kết quả chạy thiếu slot phải được gắn là thử nghiệm ngắn, không dùng để so sánh chính thức với lượt 500 slot.
+
+
+## Phân biệt kết quả Web và Hybrid E2E (19/11/2026)
+
+- **Web:** RAN được mô phỏng, Core GNS3 được đo độc lập và tuần tự. Không xem KPI Web là KPI E2E của cùng một gói tin.
+- **TV5 V2:** Lịch phát từ RAN mô phỏng được phát lại qua Client/Server GNS3 để tính KPI Hybrid E2E; việc chuyển tuyến SRv6 được kiểm chứng riêng bằng PCAP.
+- **Giới hạn:** Đây không phải phép đo E2E vô tuyến thực tế và chưa chứng nhận SLA E2E nghiêm ngặt.
+- **Minh chứng:** [Hybrid E2E KPI và SRv6](../../../evidence/tv5_hybrid_e2e_20261119/README.md).
